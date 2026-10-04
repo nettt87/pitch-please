@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pitch, Please!</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Outfit:wght@380;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <div id="app" class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <p class="brand-kicker">Perfect pitch studio</p>
+            <h1>Pitch, Please!</h1>
+          </div>
+        </div>
+        <nav class="tabs" role="tablist" aria-label="Modes">
+          <button class="tab is-active" data-mode="identify" role="tab" aria-selected="true">Identify</button>
+          <button class="tab" data-mode="produce" role="tab" aria-selected="false">Sing</button>
+          <button class="tab" data-mode="explore" role="tab" aria-selected="false">Explore</button>
+          <button class="tab" data-mode="stats" role="tab" aria-selected="false">Stats</button>
+        </nav>
+        <button class="icon-btn" id="settings-btn" type="button" aria-label="Open settings">Settings</button>
+      </header>
+
+      <main>
+        <section id="view-identify" class="view is-visible" data-view="identify">
+          <div class="stage">
+            <p class="hint" id="identify-hint">Hear a pitch. Name its chroma — not the octave. Space replays.</p>
+            <button class="orb" id="play-target" type="button" aria-label="Play the mystery note again">
+              <span class="orb-ring"></span>
+              <span class="orb-core" id="identify-orb-label">Play</span>
+            </button>
+            <div class="feedback" id="identify-feedback" aria-live="polite"></div>
+            <div class="score-row">
+              <span>Streak <strong id="streak">0</strong></span>
+              <span>Session <strong id="session-acc">—</strong></span>
+              <span>Round <strong id="round-n">0</strong></span>
+            </div>
+          </div>
+          <div class="pad-switch" role="radiogroup" aria-label="Answer with">
+            <button class="pad-opt is-active" data-pad="wheel" type="button" role="radio" aria-checked="true">Circle</button>
+            <button class="pad-opt" data-pad="piano" type="button" role="radio" aria-checked="false">Piano</button>
+            <button class="pad-opt" data-pad="guitar" type="button" role="radio" aria-checked="false">Guitar</button>
+          </div>
+          <div class="answer-area" id="answer-area">
+            <div class="wheel" id="answer-wheel"></div>
+            <div class="answer-piano" id="answer-piano" role="group" aria-label="Answer on a piano octave" hidden></div>
+            <div class="fretboard-scroll" id="answer-guitar" role="group" aria-label="Answer on a guitar neck" hidden></div>
+          </div>
+        </section>
+
+        <section id="view-produce" class="view" data-view="produce" hidden>
+          <div class="stage">
+            <p class="hint">Hum or sing the named pitch from memory, in any octave. Hold it within 20¢ to lock.</p>
+            <div class="target-name" id="produce-name">C</div>
+            <p class="sub" id="produce-octave">any octave</p>
+            <div class="tuner">
+              <div class="tuner-track">
+                <div class="tuner-needle" id="tuner-needle"></div>
+              </div>
+              <p class="tuner-readout" id="tuner-readout">Mic off</p>
+            </div>
+            <div class="row-actions">
+              <button class="btn" id="mic-btn" type="button">Enable microphone</button>
+              <button class="btn ghost" id="hear-target" type="button">Hear target</button>
+              <button class="btn ghost" id="next-produce" type="button">New note</button>
+            </div>
+            <div class="feedback" id="produce-feedback" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section id="view-explore" class="view" data-view="explore" hidden>
+          <div class="stage compact">
+            <p class="hint">Tap any pitch class or piano key. This is listening, not a quiz.</p>
+            <div class="wheel" id="explore-wheel"></div>
+          </div>
+          <div class="piano" id="piano" role="group" aria-label="Piano keyboard"></div>
+        </section>
+
+        <section id="view-stats" class="view" data-view="stats" hidden>
+          <div class="stats-grid">
+            <article class="card">
+              <p class="card-kicker">Lifetime</p>
+              <p class="stat-lg" id="life-acc">—</p>
+              <p class="sub" id="life-n">0 identifications</p>
+            </article>
+            <article class="card">
+              <p class="card-kicker">Best streak</p>
+              <p class="stat-lg" id="best-streak">0</p>
+              <p class="sub">correct in a row</p>
+            </article>
+            <article class="card">
+              <p class="card-kicker">Sung locks</p>
+              <p class="stat-lg" id="sung-locks">0</p>
+              <p class="sub">pitches sung in tune</p>
+            </article>
+            <article class="card wide">
+              <p class="card-kicker">Accuracy by pitch class</p>
+              <div class="bars" id="stat-bars"></div>
+            </article>
+          </div>
+          <div class="row-actions stats-actions">
+            <button class="btn ghost" id="reset-stats" type="button">Reset stats</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <aside class="drawer" id="settings" hidden>
+      <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <div class="drawer-head">
+          <h2 id="settings-title">Session setup</h2>
+          <button class="icon-btn" id="close-settings" type="button" aria-label="Close settings">Close</button>
+        </div>
+        <label class="field">
+          <span>Note set</span>
+          <select id="preset">
+            <option value="ceg">Starter — C E G</option>
+            <option value="cmajor">C major triad + F A</option>
+            <option value="white" selected>White keys — C D E F G A B</option>
+            <option value="chromatic">All 12 chroma</option>
+            <option value="custom">Custom</option>
+          </select>
+        </label>
+        <div class="chroma-picks" id="chroma-picks"></div>
+        <label class="field">
+          <span>Lowest octave</span>
+          <input type="range" id="oct-lo" min="2" max="5" value="4" />
+          <output id="oct-lo-out">4</output>
+        </label>
+        <label class="field">
+          <span>Highest octave</span>
+          <input type="range" id="oct-hi" min="3" max="6" value="4" />
+          <output id="oct-hi-out">4</output>
+        </label>
+        <label class="field">
+          <span>Timbre</span>
+          <select id="timbre">
+            <option value="piano" selected>Piano-like</option>
+            <option value="sine">Pure sine</option>
+            <option value="organ">Organ</option>
+            <option value="reed">Reed</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>A4 (Hz)</span>
+          <input type="range" id="a4" min="430" max="446" value="440" />
+          <output id="a4-out">440</output>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="auto-next" checked />
+          Auto-advance after a correct answer
+        </label>
+        <p class="fineprint">
+          Identify never plays a reference pitch first. That keeps the work on absolute chroma, not relative interval.
+        </p>
+      </div>
+    </aside>
+
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
