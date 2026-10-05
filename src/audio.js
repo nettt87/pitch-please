@@ -1,13 +1,4 @@
 const TIMBRES = {
-  piano: [
-    [1, 1],
-    [2, 0.48],
-    [3, 0.22],
-    [4, 0.14],
-    [5, 0.09],
-    [6, 0.05],
-    [7, 0.03],
-  ],
   sine: [[1, 1]],
   organ: [
     [1, 0.7],
@@ -58,6 +49,115 @@ function noiseBuffer(audio) {
   return noise;
 }
 
+// The piano is a recorded grand (Salamander Grand Piano, a Yamaha C5), sampled
+// every minor third from A1 to C7. Each note plays the nearest recording, shifted
+// at most a semitone and a half, so it keeps that note's own hammer and strings.
+const SAMPLE_NAMES = ["C", "Ds", "Fs", "A"];
+const SAMPLE_PCS = [0, 3, 6, 9];
+// How far each recording sits from equal temperament, in cents (MIDI note -> cents),
+// measured from its fundamental. A piano is tuned stretched, flat in the bass and almost
+// a quarter tone sharp at the top; a pitch trainer has to sound exact pitches,
+// so playback takes this back out.
+const SAMPLE_CENTS = {
+  33: -5, 36: -8.5, 39: -9.5, 42: -5.5, 45: -5.5, 48: -7.5, 51: -2, 54: -7, 57: 0.5, 60: -4, 63: 0,
+  66: -2.5, 69: 0.5, 72: 3.5, 75: 5.5, 78: 4.5, 81: 6.5, 84: 8.5, 87: 7, 90: 14.5, 93: 11, 96: 23,
+};
+// Average level of a strike's first 0.3 s that every recording is matched to, and
+// the most any one may be raised to get there.
+const TARGET_RMS = 10 ** (-21 / 20);
+const MAX_PEAK = 0.6;
+const piano = new Map();
+let pianoLoad;
+
+function sampleMidis() {
+  const out = [];
+  for (let midi = 33; midi <= 96; midi += 3) out.push(midi);
+  return out;
+}
+
+function sampleUrl(midi) {
+  const name = SAMPLE_NAMES[SAMPLE_PCS.indexOf(midi % 12)];
+  return new URL(`../samples/piano/${name}${Math.floor(midi / 12) - 1}.mp3`, import.meta.url);
+}
+
+// Fetch and decode the recordings in the background. Until a note's recording is
+// ready, the synthesized piano below plays it instead.
+export function loadPiano() {
+  if (pianoLoad) return pianoLoad;
+  // Decoding needs no running audio, so a silent offline context does it before
+  // the first tap has unlocked sound.
+  const decoder = new OfflineAudioContext(1, 1, 48000);
+  pianoLoad = Promise.all(
+    sampleMidis().map(async (midi) => {
+      try {
+        const res = await fetch(sampleUrl(midi));
+        if (!res.ok) return;
+        const buffer = await decoder.decodeAudioData(await res.arrayBuffer());
+        const { peak, rms } = attackLevel(buffer);
+        const gain = Math.min(TARGET_RMS / rms, MAX_PEAK / peak);
+        piano.set(midi, { buffer, gain, lead: leadIn(buffer, peak) });
+      } catch {
+        // A missing or undecodable file leaves that note to the synthesized piano.
+      }
+    }),
+  );
+  return pianoLoad;
+}
+
+// Peak and average level of the strike. Matching the average keeps high notes,
+// which fade fastest, as loud to the ear as low ones.
+function attackLevel(buffer) {
+  let peak = 0;
+  let sum = 0;
+  const end = Math.min(buffer.length, Math.round(buffer.sampleRate * 0.3));
+  for (let c = 0; c < buffer.numberOfChannels; c += 1) {
+    const data = buffer.getChannelData(c);
+    for (let i = 0; i < end; i += 1) {
+      peak = Math.max(peak, Math.abs(data[i]));
+      sum += data[i] * data[i];
+    }
+  }
+  return { peak: peak || 1, rms: Math.sqrt(sum / (end * buffer.numberOfChannels)) || 1 };
+}
+
+// The MP3s open with a few milliseconds of silence; skip to just before the hammer lands.
+function leadIn(buffer, peak) {
+  const data = buffer.getChannelData(0);
+  const floor = peak * 0.01;
+  let i = 0;
+  while (i < data.length && Math.abs(data[i]) < floor) i += 1;
+  return Math.max(0, i / buffer.sampleRate - 0.002);
+}
+
+function nearestSample(midi) {
+  let best = null;
+  for (const [m, sample] of piano) {
+    if (!best || Math.abs(m - midi) < Math.abs(best.midi - midi)) best = { midi: m, ...sample };
+  }
+  return best && Math.abs(best.midi - midi) <= 1.5 ? best : null;
+}
+
+function playPiano(audio, hz, start, duration) {
+  // Sample pitches are concert pitch (A4 = 440 Hz); the playback rate carries any other A4.
+  const midi = 69 + 12 * Math.log2(hz / 440);
+  const sample = nearestSample(midi);
+  if (!sample) return playAcoustic(audio, hz, start, duration);
+
+  const src = audio.createBufferSource();
+  src.buffer = sample.buffer;
+  const recorded = 440 * 2 ** ((sample.midi - 69 + (SAMPLE_CENTS[sample.midi] ?? 0) / 100) / 12);
+  src.playbackRate.value = hz / recorded;
+  // The key comes up at `duration` and the damper stops the strings within a tenth of a second.
+  const damper = audio.createGain();
+  damper.gain.setValueAtTime(sample.gain, start);
+  damper.gain.setTargetAtTime(0, start + duration, 0.05);
+  src.connect(damper);
+  damper.connect(audio.destination);
+  src.start(start, sample.lead);
+  src.stop(start + duration + 0.4);
+}
+
+// Synthesized piano, heard only while a note's recording is still loading.
 // Struck string: slightly stretched partials, each decaying faster the higher it
 // is, two detuned strings for the low partials, a soft hammer thump, and a tone
 // that darkens as it rings. Low notes sustain longer than high ones.
@@ -180,8 +280,9 @@ function playGuitar(audio, hz, start, duration) {
 export function playHz(hz, { duration = 1.15, timbre = "piano", when } = {}) {
   const audio = getContext();
   const start = when ?? audio.currentTime;
-  if (timbre === "acoustic") return playAcoustic(audio, hz, start, duration);
   if (timbre === "guitar") return playGuitar(audio, hz, start, duration);
+  // Everything else is the piano, including "acoustic", a name earlier versions saved.
+  if (!(timbre in TIMBRES)) return playPiano(audio, hz, start, duration);
   const master = audio.createGain();
   if (timbre === "organ") {
     // Pipes speak and hold at full level for as long as the key is down.
@@ -197,7 +298,7 @@ export function playHz(hz, { duration = 1.15, timbre = "piano", when } = {}) {
   }
   master.connect(audio.destination);
 
-  const partials = TIMBRES[timbre] ?? TIMBRES.piano;
+  const partials = TIMBRES[timbre];
   // Normalize so every timbre peaks at the same level and never clips.
   const total = partials.reduce((sum, [, amp]) => sum + amp, 0);
   for (const [ratio, amp] of partials) {

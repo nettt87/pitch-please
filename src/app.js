@@ -1,6 +1,6 @@
-import { playHz, getContext } from "./audio.js?v=12";
-import { detectPitch, rms } from "./pitch.js?v=12";
-import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=12";
+import { playHz, getContext, loadPiano } from "./audio.js?v=13";
+import { detectPitch, rms } from "./pitch.js?v=13";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=13";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -9,7 +9,7 @@ import {
   noteFromMidi,
   midiPool,
   chromaCentsOff,
-} from "./notes.js?v=12";
+} from "./notes.js?v=13";
 import {
   loadStats,
   saveStats,
@@ -17,7 +17,7 @@ import {
   loadSettings,
   saveSettings,
   recordIdentify,
-} from "./storage.js?v=12";
+} from "./storage.js?v=13";
 
 const LOCK_CENTS = 20;
 const LOCK_HOLD_MS = 700;
@@ -37,7 +37,8 @@ const state = {
   pcs: Array.isArray(saved.pcs) && saved.pcs.length ? saved.pcs : [...PRESETS.white],
   lo: saved.lo ?? 4,
   hi: saved.hi ?? 4,
-  timbre: saved.timbre ?? "piano",
+  // "acoustic" was a second piano before the recorded one replaced both.
+  timbre: saved.timbre === "acoustic" ? "piano" : saved.timbre ?? "piano",
   a4: saved.a4 ?? 440,
   autoNext: saved.autoNext ?? true,
   answerPad: saved.answerPad ?? "wheel",
@@ -93,7 +94,7 @@ function randomFrom(arr) {
 }
 
 // Each pad sounds like its instrument; Sing has no pad and uses the chosen timbre.
-const PAD_TIMBRE = { wheel: "organ", piano: "acoustic", guitar: "guitar" };
+const PAD_TIMBRE = { wheel: "organ", piano: "piano", guitar: "guitar" };
 
 function currentTimbre() {
   if (state.mode === "identify") return PAD_TIMBRE[state.answerPad];
@@ -749,6 +750,7 @@ function disarmReset() {
 }
 
 function init() {
+  loadPiano();
   applySettingsToControls();
   bind();
   renderPicks();

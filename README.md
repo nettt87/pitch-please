@@ -8,6 +8,9 @@ A perfect pitch trainer that runs in the browser.
 - **Explore** — play any pitch freely on a circle, a piano or a guitar neck.
 - **Stats** — accuracy per note and best streak, saved in your own browser.
 
+The piano is a recorded grand: the [Salamander Grand Piano](samples/piano/README.md) by
+Alexander Holm, CC BY 3.0.
+
 Live: https://nettt87.github.io/pitch-please/
 
 ## Run locally
@@ -21,6 +24,6 @@ Plain HTML, CSS and JavaScript modules with no build step. Serve the folder over
 
 ## Releasing
 
-Every asset reference carries a version tag (`?v=12`) in `index.html` and in the module
+Every asset reference carries a version tag (`?v=13`) in `index.html` and in the module
 imports in `src/`. Bump it everywhere in each release so browsers fetch the new files
 together instead of mixing cached old modules with new ones.
