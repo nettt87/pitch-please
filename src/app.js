@@ -1,6 +1,6 @@
 import { playHz, getContext } from "./audio.js";
 import { detectPitch } from "./pitch.js";
-import { buildAnswerPiano, buildFretboard } from "./pads.js";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -60,25 +60,19 @@ function persistSettings() {
   saveSettings({ preset, pcs, lo, hi, timbre, a4, autoNext, answerPad });
 }
 
-function placeWheel(el, enabledPcs, onPick) {
-  el.innerHTML = "";
-  const size = el.clientWidth || 420;
-  const r = size / 2 - 46;
-  PITCH_CLASSES.forEach((note, i) => {
-    const ang = (i / 12) * Math.PI * 2 - Math.PI / 2;
-    const btn = document.createElement("button");
-    btn.className = "chroma";
-    btn.type = "button";
-    btn.dataset.pc = String(note.pc);
-    btn.dataset.pos = `w${note.pc}`;
-    btn.textContent = note.name;
-    btn.style.background = note.color;
-    btn.style.left = `${size / 2 + r * Math.cos(ang)}px`;
-    btn.style.top = `${size / 2 + r * Math.sin(ang)}px`;
-    btn.disabled = Boolean(enabledPcs) && !enabledPcs.includes(note.pc);
-    btn.addEventListener("click", () => onPick(note.pc, btn));
-    el.appendChild(btn);
-  });
+// Spanning more than one octave turns Identify into naming the exact key.
+function octaveRange() {
+  return state.hi > state.lo ? { lo: state.lo, hi: state.hi } : null;
+}
+
+// What the active pad can answer. The guitar neck stops at E2 and fret 24.
+function targetPool() {
+  const all = midiPool(state.pcs, state.lo, state.hi);
+  const range = octaveRange();
+  if (!range || state.answerPad !== "guitar") return all;
+  const top = 64 + guitarFrets(range);
+  const playable = all.filter((m) => m >= GUITAR_LOW && m <= top);
+  return playable.length ? playable : all;
 }
 
 function randomFrom(arr) {
@@ -93,7 +87,7 @@ function playMidi(midi, duration = 1.2) {
 
 function newIdentifyNote(avoid) {
   clearTimeout(state.advanceTimer);
-  const all = midiPool(state.pcs, state.lo, state.hi);
+  const all = targetPool();
   const pool = all.filter((m) => m !== avoid);
   const midi = randomFrom(pool.length ? pool : all);
   state.target = noteFromMidi(midi);
@@ -108,12 +102,17 @@ function newIdentifyNote(avoid) {
   }
 }
 
-function speakIdentify(correct, pickedPc) {
+function speakIdentify(correct, pickedPc, pickedMidi) {
   const fb = $("identify-feedback");
   const label = `${state.target.name}${state.target.octave}`;
   if (correct) {
     fb.textContent = `${label} — yes`;
     fb.className = "feedback good";
+  } else if (octaveRange()) {
+    const picked = noteFromMidi(pickedMidi);
+    const lead = picked.pc === state.target.pc ? "Right note, wrong octave. " : "";
+    fb.textContent = `${lead}You played ${picked.name}${picked.octave} — that was ${label}`;
+    fb.className = "feedback bad";
   } else {
     fb.textContent = `You played ${PITCH_CLASSES[pickedPc].name} — that was ${label}`;
     fb.className = "feedback bad";
@@ -193,14 +192,16 @@ function onExplore(pc) {
 
 function layoutWheels() {
   const wheels = [
-    ["answer", $("answer-wheel"), state.pcs, onIdentify],
-    ["explore", $("explore-wheel"), null, onExplore],
+    ["answer", $("answer-wheel"), state.pcs, onIdentify, octaveRange()],
+    ["explore", $("explore-wheel"), null, onExplore, null],
   ];
-  for (const [key, el, pcs, onPick] of wheels) {
+  for (const [key, el, pcs, onPick, range] of wheels) {
+    // Size class first, so the width measured below is the one drawn into.
+    el.classList.toggle("is-multi", Boolean(range));
     const w = el.clientWidth;
     if ((w && w !== wheelSize[key]) || !el.childElementCount) {
       wheelSize[key] = w;
-      placeWheel(el, pcs, onPick);
+      buildWheel(el, pcs, onPick, range);
     }
   }
   if (state.locked && state.target) markAnswer();
@@ -211,8 +212,12 @@ function refreshWheels() {
   wheelSize.explore = 0;
   $("answer-wheel").innerHTML = "";
   $("explore-wheel").innerHTML = "";
-  buildAnswerPiano($("answer-piano"), state.pcs, onIdentify);
-  buildFretboard($("answer-guitar"), state.pcs, onIdentify);
+  const range = octaveRange();
+  buildAnswerPiano($("answer-piano"), state.pcs, onIdentify, range);
+  buildFretboard($("answer-guitar"), state.pcs, onIdentify, range);
+  $("identify-hint").textContent = range
+    ? `Hear a pitch. Find the exact key, octave included (${state.lo}–${state.hi}). Space replays.`
+    : "Hear a pitch. Name its chroma — not the octave. Space replays.";
   layoutWheels();
 }
 
@@ -220,9 +225,14 @@ function answerButtons() {
   return $("answer-area").querySelectorAll("[data-pc]");
 }
 
+function isTarget(b) {
+  if (octaveRange()) return Number(b.dataset.midi) === state.target.midi;
+  return Number(b.dataset.pc) === state.target.pc;
+}
+
 function markAnswer() {
   for (const b of answerButtons()) {
-    if (Number(b.dataset.pc) === state.target.pc) b.classList.add("is-correct");
+    if (isTarget(b)) b.classList.add("is-correct");
     else if (b.dataset.pos === state.pickPos) b.classList.add("is-wrong");
   }
 }
@@ -237,6 +247,8 @@ function setAnswerPad(pad) {
   $("answer-wheel").hidden = state.answerPad !== "wheel";
   $("answer-piano").hidden = state.answerPad !== "piano";
   $("answer-guitar").hidden = state.answerPad !== "guitar";
+  // The guitar can't reach every pitch of a wide range; draw one it can.
+  if (state.target && !state.locked && !targetPool().includes(state.target.midi)) newIdentifyNote();
   requestAnimationFrame(layoutWheels);
 }
 
@@ -249,7 +261,9 @@ function onIdentify(pc, btn) {
   }
   state.locked = true;
   state.sessionN += 1;
-  const correct = pc === state.target.pc;
+  const prev = state.target.midi;
+  const guessMidi = btn?.dataset.midi ? Number(btn.dataset.midi) : nearestMidi(pc, prev);
+  const correct = btn ? isTarget(btn) : pc === state.target.pc;
   if (correct) {
     state.sessionHits += 1;
     state.streak += 1;
@@ -261,13 +275,11 @@ function onIdentify(pc, btn) {
   markAnswer();
   state.stats = recordIdentify(state.stats, state.target.pc, correct);
   saveStats(state.stats);
-  speakIdentify(correct, pc);
+  speakIdentify(correct, pc, guessMidi);
   updateSessionHud();
 
-  // Play what was pressed: a guitar position sounds at its real pitch; the circle
-  // and piano sound the guessed chroma in the octave nearest the target.
-  const prev = state.target.midi;
-  const guessMidi = btn?.dataset.midi ? Number(btn.dataset.midi) : nearestMidi(pc, prev);
+  // Play what was pressed: a pad showing real octaves sounds that pitch; a
+  // chroma-only pad sounds the guess in the octave nearest the target.
   playMidi(guessMidi, 0.9);
   if (!correct) {
     // Then the real note, so the two can be compared.
@@ -505,12 +517,14 @@ function bind() {
     if (state.lo > state.hi) state.hi = state.lo;
     syncOctaveOutputs();
     persistSettings();
+    refreshWheels();
   });
   $("oct-hi").addEventListener("input", (e) => {
     state.hi = Number(e.target.value);
     if (state.hi < state.lo) state.lo = state.hi;
     syncOctaveOutputs();
     persistSettings();
+    refreshWheels();
   });
   $("timbre").addEventListener("change", (e) => {
     state.timbre = e.target.value;
