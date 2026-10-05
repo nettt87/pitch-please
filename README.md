@@ -4,7 +4,7 @@ A perfect pitch trainer that runs in the browser.
 
 - **Identify** — hear a note and name it on a circle, a piano or a guitar neck; with a range of several octaves, name the exact key.
 - **Sing** — sing a named note from memory; the tuner locks when you hold it within 20 cents.
-- **Explore** — play any pitch class or piano key freely.
+- **Explore** — play any pitch freely on a circle, a piano or a guitar neck.
 - **Stats** — accuracy per note and best streak, saved in your own browser.
 
 Live: https://nettt87.github.io/pitch-please/
@@ -20,6 +20,6 @@ Plain HTML, CSS and JavaScript modules with no build step. Serve the folder over
 
 ## Releasing
 
-Every asset reference carries a version tag (`?v=3`) in `index.html` and in the module
+Every asset reference carries a version tag (`?v=4`) in `index.html` and in the module
 imports in `src/`. Bump it everywhere in each release so browsers fetch the new files
 together instead of mixing cached old modules with new ones.

@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Outfit:wght@380;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=3" />
+    <link rel="stylesheet" href="styles.css?v=4" />
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -81,10 +81,18 @@
 
         <section id="view-explore" class="view" data-view="explore" hidden>
           <div class="stage compact">
-            <p class="hint">Tap any pitch class or piano key. This is listening, not a quiz.</p>
-            <div class="wheel" id="explore-wheel"></div>
+            <p class="hint">Tap any pitch to hear it. This is listening, not a quiz.</p>
           </div>
-          <div class="piano" id="piano" role="group" aria-label="Piano keyboard"></div>
+          <div class="pad-switch" role="radiogroup" aria-label="Explore on">
+            <button class="pad-opt is-active" data-explore-pad="wheel" type="button" role="radio" aria-checked="true">Circle</button>
+            <button class="pad-opt" data-explore-pad="piano" type="button" role="radio" aria-checked="false">Piano</button>
+            <button class="pad-opt" data-explore-pad="guitar" type="button" role="radio" aria-checked="false">Guitar</button>
+          </div>
+          <div class="answer-area" id="explore-area">
+            <div class="wheel" id="explore-wheel"></div>
+            <div class="piano" id="piano" role="group" aria-label="Piano keyboard" hidden></div>
+            <div class="fretboard-scroll" id="explore-guitar" role="group" aria-label="Guitar neck" hidden></div>
+          </div>
         </section>
 
         <section id="view-stats" class="view" data-view="stats" hidden>
@@ -169,6 +177,6 @@
       </div>
     </aside>
 
-    <script type="module" src="src/app.js?v=3"></script>
+    <script type="module" src="src/app.js?v=4"></script>
   </body>
 </html>

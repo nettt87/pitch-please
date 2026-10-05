@@ -866,3 +866,15 @@ h1 {
   border-color: var(--bad);
   color: var(--bad);
 }
+
+/* Explore */
+
+#explore-area .piano {
+  margin-top: 24px;
+}
+
+.fret.is-down .fret-dot {
+  background: var(--c);
+  color: #111;
+  transform: scale(1.15);
+}

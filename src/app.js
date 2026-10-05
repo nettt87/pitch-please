@@ -1,6 +1,6 @@
-import { playHz, getContext } from "./audio.js?v=3";
-import { detectPitch } from "./pitch.js?v=3";
-import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=3";
+import { playHz, getContext } from "./audio.js?v=4";
+import { detectPitch } from "./pitch.js?v=4";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=4";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -9,7 +9,7 @@ import {
   noteFromMidi,
   midiPool,
   chromaCentsOff,
-} from "./notes.js?v=3";
+} from "./notes.js?v=4";
 import {
   loadStats,
   saveStats,
@@ -17,7 +17,7 @@ import {
   loadSettings,
   saveSettings,
   recordIdentify,
-} from "./storage.js?v=3";
+} from "./storage.js?v=4";
 
 const LOCK_CENTS = 20;
 const LOCK_HOLD_MS = 700;
@@ -35,6 +35,7 @@ const state = {
   a4: saved.a4 ?? 440,
   autoNext: saved.autoNext ?? true,
   answerPad: saved.answerPad ?? "wheel",
+  explorePad: saved.explorePad ?? "wheel",
   pickPos: null,
   target: null,
   heard: false,
@@ -56,8 +57,8 @@ const state = {
 const $ = (id) => document.getElementById(id);
 
 function persistSettings() {
-  const { preset, pcs, lo, hi, timbre, a4, autoNext, answerPad } = state;
-  saveSettings({ preset, pcs, lo, hi, timbre, a4, autoNext, answerPad });
+  const { preset, pcs, lo, hi, timbre, a4, autoNext, answerPad, explorePad } = state;
+  saveSettings({ preset, pcs, lo, hi, timbre, a4, autoNext, answerPad, explorePad });
 }
 
 // Spanning more than one octave turns Identify into naming the exact key.
@@ -190,6 +191,12 @@ function onExplore(pc) {
   playMidi((4 + 1) * 12 + pc);
 }
 
+function onExploreFret(pc, btn) {
+  playMidi(Number(btn.dataset.midi), 1.4);
+  btn.classList.add("is-down");
+  setTimeout(() => btn.classList.remove("is-down"), 220);
+}
+
 function layoutWheels() {
   const wheels = [
     ["answer", $("answer-wheel"), state.pcs, onIdentify, octaveRange()],
@@ -239,7 +246,7 @@ function markAnswer() {
 
 function setAnswerPad(pad) {
   state.answerPad = PADS.includes(pad) ? pad : "wheel";
-  document.querySelectorAll(".pad-opt").forEach((b) => {
+  document.querySelectorAll(".pad-opt[data-pad]").forEach((b) => {
     const on = b.dataset.pad === state.answerPad;
     b.classList.toggle("is-active", on);
     b.setAttribute("aria-checked", String(on));
@@ -249,6 +256,19 @@ function setAnswerPad(pad) {
   $("answer-guitar").hidden = state.answerPad !== "guitar";
   // The guitar can't reach every pitch of a wide range; draw one it can.
   if (state.target && !state.locked && !targetPool().includes(state.target.midi)) newIdentifyNote();
+  requestAnimationFrame(layoutWheels);
+}
+
+function setExplorePad(pad) {
+  state.explorePad = PADS.includes(pad) ? pad : "wheel";
+  document.querySelectorAll(".pad-opt[data-explore-pad]").forEach((b) => {
+    const on = b.dataset.explorePad === state.explorePad;
+    b.classList.toggle("is-active", on);
+    b.setAttribute("aria-checked", String(on));
+  });
+  $("explore-wheel").hidden = state.explorePad !== "wheel";
+  $("piano").hidden = state.explorePad !== "piano";
+  $("explore-guitar").hidden = state.explorePad !== "guitar";
   requestAnimationFrame(layoutWheels);
 }
 
@@ -481,11 +501,17 @@ function bind() {
     tab.addEventListener("click", () => showMode(tab.dataset.mode));
   });
   $("play-target").addEventListener("click", playCurrent);
-  document.querySelectorAll(".pad-opt").forEach((b) => {
+  document.querySelectorAll(".pad-opt[data-pad]").forEach((b) => {
     b.addEventListener("click", () => {
       setAnswerPad(b.dataset.pad);
       persistSettings();
       if (state.locked && state.target) markAnswer();
+    });
+  });
+  document.querySelectorAll(".pad-opt[data-explore-pad]").forEach((b) => {
+    b.addEventListener("click", () => {
+      setExplorePad(b.dataset.explorePad);
+      persistSettings();
     });
   });
   $("settings-btn").addEventListener("click", openSettings);
@@ -584,6 +610,8 @@ function init() {
   refreshWheels();
   setAnswerPad(state.answerPad);
   buildPiano();
+  buildFretboard($("explore-guitar"), null, onExploreFret);
+  setExplorePad(state.explorePad);
   renderStats();
   updateSessionHud();
   newIdentifyNote();
