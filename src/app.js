@@ -1,6 +1,6 @@
-import { playHz, getContext } from "./audio.js?v=4";
-import { detectPitch } from "./pitch.js?v=4";
-import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=4";
+import { playHz, getContext } from "./audio.js?v=5";
+import { detectPitch } from "./pitch.js?v=5";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=5";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -9,7 +9,7 @@ import {
   noteFromMidi,
   midiPool,
   chromaCentsOff,
-} from "./notes.js?v=4";
+} from "./notes.js?v=5";
 import {
   loadStats,
   saveStats,
@@ -17,7 +17,7 @@ import {
   loadSettings,
   saveSettings,
   recordIdentify,
-} from "./storage.js?v=4";
+} from "./storage.js?v=5";
 
 const LOCK_CENTS = 20;
 const LOCK_HOLD_MS = 700;
@@ -343,7 +343,7 @@ function buildPiano() {
     const key = document.createElement("button");
     key.className = `key${isBlack ? " black" : ""}`;
     key.type = "button";
-    key.textContent = isBlack ? "" : n.name;
+    key.textContent = n.name;
     key.title = `${n.name}${n.octave}`;
     key.setAttribute("aria-label", `${n.name}${n.octave}`);
     key.addEventListener("click", () => {

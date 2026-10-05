@@ -339,20 +339,23 @@ h1 {
   box-shadow: 0 0 12px var(--good);
 }
 
+/* Key faces shared by the Explore keyboard (.key) and the Identify answer piano (.pkey). */
+
+/* The fallboard: a dark wooden rail the keys disappear under. */
+.piano,
+.piano-keys {
+  border-top: 14px solid #16110d;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 -1px 0 rgba(243, 238, 228, 0.08);
+}
+
 .piano {
   display: flex;
-  margin-top: 28px;
+  width: max-content;
+  max-width: 100%;
+  margin: 28px auto 0;
   padding-bottom: 6px;
   overflow-x: auto;
-}
-
-/* Auto margins center the keys but still let a narrow screen scroll to the first one. */
-.key:first-child {
-  margin-left: auto;
-}
-
-.key:last-child {
-  margin-right: auto;
 }
 
 .key {
@@ -362,34 +365,84 @@ h1 {
   align-items: flex-end;
   justify-content: center;
   width: 42px;
-  height: 168px;
-  margin: 0 1px;
-  padding: 0 0 12px;
+  height: 172px;
+  padding: 0 0 16px;
   border: 0;
-  border-radius: 0 0 8px 8px;
-  background: #f6f1e8;
-  color: #222;
   font: inherit;
   font-size: 13px;
   cursor: pointer;
-  transition: background 0.12s ease;
 }
 
 .key.black {
   width: 28px;
-  height: 102px;
-  margin: 0 -15px;
+  height: 106px;
+  margin: 0 -14px;
   z-index: 1;
-  background: #1a1c22;
-  color: #eee;
+  padding-bottom: 14px;
+  font-size: 10px;
+  letter-spacing: -0.02em;
 }
 
-.key.is-down {
-  background: var(--brass);
+.key:not(.black),
+.pkey.white {
+  border-radius: 0 0 5px 5px;
+  background: linear-gradient(180deg, #ddd5c6 0%, #f9f5ec 9%, #f6f1e6 82%, #ece5d6 100%);
+  color: #3a352e;
+  box-shadow:
+    inset 0 3px 0 #6b1c20,
+    inset 0 12px 9px -8px rgba(0, 0, 0, 0.4),
+    inset -1px 0 0 rgba(0, 0, 0, 0.28),
+    inset 1px 0 0 rgba(255, 255, 255, 0.85),
+    inset 0 -7px 0 -1px #d9d0bf,
+    0 5px 7px rgba(0, 0, 0, 0.4);
+  transition: background 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
 }
 
-.key.black.is-down {
-  background: #8a6d45;
+.key.black,
+.pkey.black {
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(180deg, #08090b 0%, #1f2126 70%, #34363d 86%, #26282d 88%, #111215 100%);
+  color: #d8d2c6;
+  box-shadow:
+    inset 0 3px 0 #4f1418,
+    inset 2px 0 1px rgba(255, 255, 255, 0.1),
+    inset -2px 0 2px rgba(0, 0, 0, 0.7),
+    2px 5px 6px rgba(0, 0, 0, 0.55),
+    -1px 2px 3px rgba(0, 0, 0, 0.35);
+  transition: background 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+}
+
+/* Pressed: the key sinks, so its front lip and cast shadow shrink. */
+.key:not(.black).is-down,
+.key:not(.black):active,
+.pkey.white:active:not(:disabled) {
+  background: linear-gradient(180deg, #cfc6b5 0%, #efe9dd 12%, #ebe5d8 100%);
+  box-shadow:
+    inset 0 3px 0 #6b1c20,
+    inset 0 16px 12px -8px rgba(0, 0, 0, 0.5),
+    inset -1px 0 0 rgba(0, 0, 0, 0.3),
+    inset 0 -3px 0 -1px #cfc5b3,
+    0 2px 3px rgba(0, 0, 0, 0.35);
+}
+
+.key.black.is-down,
+.key.black:active,
+.pkey.black:active:not(:disabled) {
+  background: linear-gradient(180deg, #050607 0%, #18191d 80%, #2a2c32 92%, #111215 100%);
+  box-shadow:
+    inset 0 3px 0 #4f1418,
+    inset -2px 0 2px rgba(0, 0, 0, 0.7),
+    1px 2px 3px rgba(0, 0, 0, 0.5);
+}
+
+.key:hover,
+.pkey:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.key.black:hover,
+.pkey.black:hover:not(:disabled) {
+  filter: brightness(1.4);
 }
 
 .stats-grid {
@@ -654,30 +707,23 @@ select {
   border: 0;
   font: inherit;
   cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pkey.white {
   height: 100%;
-  border-radius: 0 0 10px 10px;
-  background: #f6f1e8;
-  color: #222;
-  box-shadow: inset -1px 0 0 #c9c2b6;
+  padding-bottom: 18px;
 }
 
 .pkey.black {
   z-index: 1;
   height: 60%;
   justify-content: space-between;
-  padding: 0 0 10px;
-  border-radius: 0 0 7px 7px;
-  background: #1a1c22;
-  color: #eee;
+  padding: 0 0 12px;
   font-size: 11px;
 }
 
 .pkey.black .pkey-name {
-  padding-top: 8px;
+  padding-top: 12px;
 }
 
 .pkey-dot {
@@ -685,14 +731,7 @@ select {
   height: 10px;
   border-radius: 50%;
   background: var(--c);
-}
-
-.pkey.white:hover:not(:disabled) {
-  background: #fffaf0;
-}
-
-.pkey.black:hover:not(:disabled) {
-  background: #2a2d36;
+  box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .pkey:disabled {
@@ -700,13 +739,12 @@ select {
 }
 
 .pkey.white:disabled {
-  background: #9d988f;
-  color: #555;
+  filter: brightness(0.62) saturate(0.6);
 }
 
 .pkey.black:disabled {
-  background: #2b2c30;
-  color: #666;
+  filter: brightness(0.8);
+  color: #6a665f;
 }
 
 .pkey:disabled .pkey-dot {
@@ -714,13 +752,13 @@ select {
 }
 
 .pkey.is-correct {
-  background: var(--c) !important;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, transparent 14%, transparent 88%, rgba(0, 0, 0, 0.12) 100%), var(--c) !important;
   color: #111;
-  box-shadow: inset 0 0 0 3px var(--good);
+  box-shadow: inset 0 0 0 3px var(--good), 0 5px 7px rgba(0, 0, 0, 0.4);
 }
 
 .pkey.is-wrong {
-  box-shadow: inset 0 0 0 3px var(--bad);
+  box-shadow: inset 0 0 0 3px var(--bad), 0 5px 7px rgba(0, 0, 0, 0.4);
 }
 
 .fretboard-scroll {
