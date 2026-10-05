@@ -80,13 +80,18 @@ function playAcoustic(audio, hz, start, duration) {
   }
   const total = partials.reduce((sum, [, amp]) => sum + amp, 0);
 
+  // Two-stage decay, as in a real piano: a quick drop right after the strike
+  // (the "prompt sound"), then a long, slow ring (the "aftersound").
+  const prompt = Math.max(0.06, Math.min(0.2, 0.16 * (261.6 / hz) ** 0.3));
   for (const [n, amp] of partials) {
     const freq = n * hz * Math.sqrt((1 + B * n * n) / (1 + B));
     const g = audio.createGain();
     const peak = (amp / total) * 0.32;
+    const knee = start + 0.004 + prompt * 2;
     g.gain.setValueAtTime(0, start);
     g.gain.linearRampToValueAtTime(peak, start + 0.004);
-    g.gain.setTargetAtTime(0, start + 0.004, tau1 / (1 + 0.35 * (n - 1)));
+    g.gain.setTargetAtTime(peak * (0.32 / (1 + 0.15 * (n - 1))), start + 0.004, prompt / (1 + 0.1 * (n - 1)));
+    g.gain.setTargetAtTime(0, knee, tau1 / (1 + 0.35 * (n - 1)));
     g.connect(tone);
     const strings = n <= 8 ? [-0.8, 0.8] : [0];
     for (const cents of strings) {
@@ -178,10 +183,18 @@ export function playHz(hz, { duration = 1.15, timbre = "piano", when } = {}) {
   if (timbre === "acoustic") return playAcoustic(audio, hz, start, duration);
   if (timbre === "guitar") return playGuitar(audio, hz, start, duration);
   const master = audio.createGain();
-  master.gain.setValueAtTime(0.0001, start);
-  master.gain.exponentialRampToValueAtTime(0.22, start + 0.02);
-  master.gain.exponentialRampToValueAtTime(0.08, start + 0.28);
-  master.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  if (timbre === "organ") {
+    // Pipes speak and hold at full level for as long as the key is down.
+    master.gain.setValueAtTime(0, start);
+    master.gain.linearRampToValueAtTime(0.13, start + 0.025);
+    master.gain.setValueAtTime(0.13, start + duration - 0.09);
+    master.gain.linearRampToValueAtTime(0, start + duration);
+  } else {
+    master.gain.setValueAtTime(0.0001, start);
+    master.gain.exponentialRampToValueAtTime(0.22, start + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.08, start + 0.28);
+    master.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  }
   master.connect(audio.destination);
 
   const partials = TIMBRES[timbre] ?? TIMBRES.piano;
