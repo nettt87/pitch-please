@@ -1,6 +1,6 @@
-import { playHz, getContext } from "./audio.js?v=11";
-import { detectPitch, rms } from "./pitch.js?v=11";
-import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=11";
+import { playHz, getContext } from "./audio.js?v=12";
+import { detectPitch, rms } from "./pitch.js?v=12";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=12";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -9,7 +9,7 @@ import {
   noteFromMidi,
   midiPool,
   chromaCentsOff,
-} from "./notes.js?v=11";
+} from "./notes.js?v=12";
 import {
   loadStats,
   saveStats,
@@ -17,7 +17,7 @@ import {
   loadSettings,
   saveSettings,
   recordIdentify,
-} from "./storage.js?v=11";
+} from "./storage.js?v=12";
 
 const LOCK_CENTS = 20;
 const LOCK_HOLD_MS = 700;
@@ -118,6 +118,7 @@ function newIdentifyNote(avoid) {
   $("identify-feedback").textContent = "";
   $("identify-feedback").className = "feedback";
   $("identify-orb-label").textContent = "Play";
+  $("play-target").classList.remove("is-right", "is-wrong");
   state.pickPos = null;
   for (const b of answerButtons()) {
     b.classList.remove("is-correct", "is-wrong");
@@ -140,6 +141,7 @@ function speakIdentify(correct, pickedPc, pickedMidi) {
     fb.className = "feedback bad";
   }
   $("identify-orb-label").textContent = label;
+  $("play-target").classList.add(correct ? "is-right" : "is-wrong");
 }
 
 function updateSessionHud() {

@@ -21,6 +21,6 @@ Plain HTML, CSS and JavaScript modules with no build step. Serve the folder over
 
 ## Releasing
 
-Every asset reference carries a version tag (`?v=11`) in `index.html` and in the module
+Every asset reference carries a version tag (`?v=12`) in `index.html` and in the module
 imports in `src/`. Bump it everywhere in each release so browsers fetch the new files
 together instead of mixing cached old modules with new ones.
