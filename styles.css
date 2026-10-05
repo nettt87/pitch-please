@@ -562,6 +562,8 @@ h1 {
 .drawer {
   position: fixed;
   inset: 0;
+  /* Above everything on the page, including black keys and fret dots (z-index 1). */
+  z-index: 100;
   background: rgba(0, 0, 0, 0.55);
   display: grid;
   place-items: center;
