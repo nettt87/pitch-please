@@ -1,6 +1,6 @@
-import { playHz, getContext } from "./audio.js?v=5";
-import { detectPitch } from "./pitch.js?v=5";
-import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=5";
+import { playHz, getContext } from "./audio.js?v=6";
+import { detectPitch } from "./pitch.js?v=6";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=6";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -9,7 +9,7 @@ import {
   noteFromMidi,
   midiPool,
   chromaCentsOff,
-} from "./notes.js?v=5";
+} from "./notes.js?v=6";
 import {
   loadStats,
   saveStats,
@@ -17,7 +17,7 @@ import {
   loadSettings,
   saveSettings,
   recordIdentify,
-} from "./storage.js?v=5";
+} from "./storage.js?v=6";
 
 const LOCK_CENTS = 20;
 const LOCK_HOLD_MS = 700;
@@ -80,10 +80,19 @@ function randomFrom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// Each pad sounds like its instrument; Sing has no pad and uses the chosen timbre.
+const PAD_TIMBRE = { wheel: "organ", piano: "acoustic", guitar: "guitar" };
+
+function currentTimbre() {
+  if (state.mode === "identify") return PAD_TIMBRE[state.answerPad];
+  if (state.mode === "explore") return PAD_TIMBRE[state.explorePad];
+  return state.timbre;
+}
+
 function playMidi(midi, duration = 1.2) {
   // Keep the tuner from hearing the speakers and locking on its own playback.
   state.muteMicUntil = performance.now() + duration * 1000 + 150;
-  playHz(midiToHz(midi, state.a4), { duration, timbre: state.timbre });
+  playHz(midiToHz(midi, state.a4), { duration, timbre: currentTimbre() });
 }
 
 function newIdentifyNote(avoid) {
