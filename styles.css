@@ -85,6 +85,15 @@ body {
   text-transform: uppercase;
 }
 
+/* On phones the tagline breaks into two even lines rather than leaving one word alone. */
+@media (max-width: 560px) {
+  .brand-kicker {
+    margin-bottom: 2px;
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+}
+
 h1,
 h2 {
   font-family: Fraunces, Georgia, serif;
@@ -892,7 +901,6 @@ h1 {
   .brand-kicker {
     font-size: 10px;
     letter-spacing: 0.1em;
-    white-space: nowrap;
   }
 
   .tab {
