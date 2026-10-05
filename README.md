@@ -9,7 +9,9 @@ A perfect pitch trainer that runs in the browser.
 - **Stats** — accuracy per note and best streak, saved in your own browser.
 
 The piano is a recorded grand: the [Salamander Grand Piano](samples/piano/README.md) by
-Alexander Holm, CC BY 3.0.
+Alexander Holm, CC BY 3.0. The guitar is a recorded steel-string acoustic: the University
+of Iowa samples via tonejs-instruments (CC BY 3.0), and above D5 the Musyng Kite soundfont
+(CC BY-SA 3.0); see [samples/guitar](samples/guitar/README.md).
 
 Live: https://nettt87.github.io/pitch-please/
 
@@ -24,6 +26,6 @@ Plain HTML, CSS and JavaScript modules with no build step. Serve the folder over
 
 ## Releasing
 
-Every asset reference carries a version tag (`?v=13`) in `index.html` and in the module
+Every asset reference carries a version tag (`?v=14`) in `index.html` and in the module
 imports in `src/`. Bump it everywhere in each release so browsers fetch the new files
 together instead of mixing cached old modules with new ones.

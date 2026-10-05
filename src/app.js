@@ -1,6 +1,6 @@
-import { playHz, getContext, loadPiano } from "./audio.js?v=13";
-import { detectPitch, rms } from "./pitch.js?v=13";
-import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=13";
+import { playHz, getContext, preload } from "./audio.js?v=14";
+import { detectPitch, rms } from "./pitch.js?v=14";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=14";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -9,7 +9,7 @@ import {
   noteFromMidi,
   midiPool,
   chromaCentsOff,
-} from "./notes.js?v=13";
+} from "./notes.js?v=14";
 import {
   loadStats,
   saveStats,
@@ -17,7 +17,7 @@ import {
   loadSettings,
   saveSettings,
   recordIdentify,
-} from "./storage.js?v=13";
+} from "./storage.js?v=14";
 
 const LOCK_CENTS = 20;
 const LOCK_HOLD_MS = 700;
@@ -274,6 +274,7 @@ function markAnswer() {
 
 function setAnswerPad(pad) {
   state.answerPad = PADS.includes(pad) ? pad : "wheel";
+  preload(PAD_TIMBRE[state.answerPad]);
   document.querySelectorAll(".pad-opt[data-pad]").forEach((b) => {
     const on = b.dataset.pad === state.answerPad;
     b.classList.toggle("is-active", on);
@@ -289,6 +290,7 @@ function setAnswerPad(pad) {
 
 function setExplorePad(pad) {
   state.explorePad = PADS.includes(pad) ? pad : "wheel";
+  preload(PAD_TIMBRE[state.explorePad]);
   document.querySelectorAll(".pad-opt[data-explore-pad]").forEach((b) => {
     const on = b.dataset.explorePad === state.explorePad;
     b.classList.toggle("is-active", on);
@@ -703,6 +705,7 @@ function bind() {
   });
   $("timbre").addEventListener("change", (e) => {
     state.timbre = e.target.value;
+    preload(state.timbre);
     persistSettings();
   });
   $("a4").addEventListener("input", (e) => {
@@ -750,7 +753,8 @@ function disarmReset() {
 }
 
 function init() {
-  loadPiano();
+  // Recordings load for the instruments in use; the rest wait until one is picked.
+  preload(state.timbre);
   applySettingsToControls();
   bind();
   renderPicks();

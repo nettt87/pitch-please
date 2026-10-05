@@ -49,59 +49,73 @@ function noiseBuffer(audio) {
   return noise;
 }
 
-// The piano is a recorded grand (Salamander Grand Piano, a Yamaha C5), sampled
-// every minor third from A1 to C7. Each note plays the nearest recording, shifted
-// at most a semitone and a half, so it keeps that note's own hammer and strings.
-const SAMPLE_NAMES = ["C", "Ds", "Fs", "A"];
-const SAMPLE_PCS = [0, 3, 6, 9];
-// How far each recording sits from equal temperament, in cents (MIDI note -> cents),
-// measured from its fundamental. A piano is tuned stretched, flat in the bass and almost
-// a quarter tone sharp at the top; a pitch trainer has to sound exact pitches,
-// so playback takes this back out.
-const SAMPLE_CENTS = {
-  33: -5, 36: -8.5, 39: -9.5, 42: -5.5, 45: -5.5, 48: -7.5, 51: -2, 54: -7, 57: 0.5, 60: -4, 63: 0,
-  66: -2.5, 69: 0.5, 72: 3.5, 75: 5.5, 78: 4.5, 81: 6.5, 84: 8.5, 87: 7, 90: 14.5, 93: 11, 96: 23,
-};
+// Piano and guitar play recordings. Each note plays the nearest recording, shifted
+// by its playback rate, so it keeps that instrument's own attack and strings.
+const NOTE_FILES = ["C", "Cs", "D", "Ds", "E", "F", "Fs", "G", "Gs", "A", "As", "B"];
 // Average level of a strike's first 0.3 s that every recording is matched to, and
 // the most any one may be raised to get there.
 const TARGET_RMS = 10 ** (-21 / 20);
 const MAX_PEAK = 0.6;
-const piano = new Map();
-let pianoLoad;
 
-function sampleMidis() {
-  const out = [];
-  for (let midi = 33; midi <= 96; midi += 3) out.push(midi);
-  return out;
-}
+function sampler({ dir, midis, cents, maxShift, damp }) {
+  const notes = new Map();
+  let loading;
 
-function sampleUrl(midi) {
-  const name = SAMPLE_NAMES[SAMPLE_PCS.indexOf(midi % 12)];
-  return new URL(`../samples/piano/${name}${Math.floor(midi / 12) - 1}.mp3`, import.meta.url);
-}
+  // Fetch and decode in the background. Until a note's recording is ready, the
+  // synthesized instrument plays it instead.
+  function load() {
+    if (loading) return loading;
+    // Decoding needs no running audio, so a silent offline context does it before
+    // the first tap has unlocked sound.
+    const decoder = new OfflineAudioContext(1, 1, 48000);
+    loading = Promise.all(
+      midis.map(async (midi) => {
+        try {
+          const file = `${NOTE_FILES[midi % 12]}${Math.floor(midi / 12) - 1}.mp3`;
+          const res = await fetch(new URL(`../samples/${dir}/${file}`, import.meta.url));
+          if (!res.ok) return;
+          const buffer = await decoder.decodeAudioData(await res.arrayBuffer());
+          const { peak, rms } = attackLevel(buffer);
+          const gain = Math.min(TARGET_RMS / rms, MAX_PEAK / peak);
+          // Each recording's own tuning, so playback lands on equal temperament.
+          const hz = 440 * 2 ** ((midi - 69 + (cents[midi] ?? 0) / 100) / 12);
+          notes.set(midi, { buffer, gain, hz, lead: leadIn(buffer, peak) });
+        } catch {
+          // A missing or undecodable file leaves that note to the synthesized instrument.
+        }
+      }),
+    );
+    return loading;
+  }
 
-// Fetch and decode the recordings in the background. Until a note's recording is
-// ready, the synthesized piano below plays it instead.
-export function loadPiano() {
-  if (pianoLoad) return pianoLoad;
-  // Decoding needs no running audio, so a silent offline context does it before
-  // the first tap has unlocked sound.
-  const decoder = new OfflineAudioContext(1, 1, 48000);
-  pianoLoad = Promise.all(
-    sampleMidis().map(async (midi) => {
-      try {
-        const res = await fetch(sampleUrl(midi));
-        if (!res.ok) return;
-        const buffer = await decoder.decodeAudioData(await res.arrayBuffer());
-        const { peak, rms } = attackLevel(buffer);
-        const gain = Math.min(TARGET_RMS / rms, MAX_PEAK / peak);
-        piano.set(midi, { buffer, gain, lead: leadIn(buffer, peak) });
-      } catch {
-        // A missing or undecodable file leaves that note to the synthesized piano.
-      }
-    }),
-  );
-  return pianoLoad;
+  // False when no recording is close enough (or loaded yet) to play `hz`.
+  function play(audio, hz, start, duration) {
+    load();
+    // Recordings are at concert pitch (A4 = 440 Hz); the playback rate carries any other A4.
+    const midi = 69 + 12 * Math.log2(hz / 440);
+    let best;
+    for (const [m, note] of notes) {
+      if (!best || Math.abs(m - midi) < Math.abs(best.m - midi)) best = { m, ...note };
+    }
+    if (!best || Math.abs(best.m - midi) > maxShift) return false;
+
+    const src = audio.createBufferSource();
+    src.buffer = best.buffer;
+    src.playbackRate.value = hz / best.hz;
+    // The note stops at `duration` (a damper, or a hand on the strings), or just
+    // before the recording runs out, whichever comes first.
+    const left = (best.buffer.duration - best.lead) / src.playbackRate.value - 0.15;
+    const stop = audio.createGain();
+    stop.gain.setValueAtTime(best.gain, start);
+    stop.gain.setTargetAtTime(0, start + Math.min(duration, left), damp);
+    src.connect(stop);
+    stop.connect(audio.destination);
+    src.start(start, best.lead);
+    src.stop(start + duration + 0.4);
+    return true;
+  }
+
+  return { load, play };
 }
 
 // Peak and average level of the strike. Matching the average keeps high notes,
@@ -120,7 +134,7 @@ function attackLevel(buffer) {
   return { peak: peak || 1, rms: Math.sqrt(sum / (end * buffer.numberOfChannels)) || 1 };
 }
 
-// The MP3s open with a few milliseconds of silence; skip to just before the hammer lands.
+// The MP3s open with up to 50 ms of silence; skip to just before the strike.
 function leadIn(buffer, peak) {
   const data = buffer.getChannelData(0);
   const floor = peak * 0.01;
@@ -129,32 +143,47 @@ function leadIn(buffer, peak) {
   return Math.max(0, i / buffer.sampleRate - 0.002);
 }
 
-function nearestSample(midi) {
-  let best = null;
-  for (const [m, sample] of piano) {
-    if (!best || Math.abs(m - midi) < Math.abs(best.midi - midi)) best = { midi: m, ...sample };
-  }
-  return best && Math.abs(best.midi - midi) <= 1.5 ? best : null;
-}
+const range = (lo, hi, step) => Array.from({ length: Math.floor((hi - lo) / step) + 1 }, (_, i) => lo + i * step);
 
-function playPiano(audio, hz, start, duration) {
-  // Sample pitches are concert pitch (A4 = 440 Hz); the playback rate carries any other A4.
-  const midi = 69 + 12 * Math.log2(hz / 440);
-  const sample = nearestSample(midi);
-  if (!sample) return playAcoustic(audio, hz, start, duration);
+// Salamander Grand Piano (a Yamaha C5), every minor third from A1 to C7. A piano
+// is tuned stretched, flat in the bass and almost a quarter tone sharp at the top;
+// a pitch trainer has to sound exact pitches, so `cents` (each recording's
+// measured offset from equal temperament) takes that back out.
+const piano = sampler({
+  dir: "piano",
+  midis: range(33, 96, 3),
+  cents: {
+    33: -5, 36: -8.5, 39: -9.5, 42: -5.5, 45: -5.5, 48: -7.5, 51: -2, 54: -7, 57: 0.5, 60: -4, 63: 0,
+    66: -2.5, 69: 0.5, 72: 3.5, 75: 5.5, 78: 4.5, 81: 6.5, 84: 8.5, 87: 7, 90: 14.5, 93: 11, 96: 23,
+  },
+  maxShift: 1.5,
+  damp: 0.05,
+});
 
-  const src = audio.createBufferSource();
-  src.buffer = sample.buffer;
-  const recorded = 440 * 2 ** ((sample.midi - 69 + (SAMPLE_CENTS[sample.midi] ?? 0) / 100) / 12);
-  src.playbackRate.value = hz / recorded;
-  // The key comes up at `duration` and the damper stops the strings within a tenth of a second.
-  const damper = audio.createGain();
-  damper.gain.setValueAtTime(sample.gain, start);
-  damper.gain.setTargetAtTime(0, start + duration, 0.05);
-  src.connect(damper);
-  damper.connect(audio.destination);
-  src.start(start, sample.lead);
-  src.stop(start + duration + 0.4);
+// A steel-string acoustic guitar: every semitone from D2 to D5 recorded at the
+// University of Iowa, then the Musyng Kite guitar up to C7, past the 24th fret.
+// Below D2 (lower than a guitar's open E) the lowest recording is shifted down.
+const guitar = sampler({
+  dir: "guitar",
+  // The A2 recording (open A string) dies away as if muted; A#2 shifted down plays it.
+  midis: range(38, 96, 1).filter((m) => m !== 45),
+  cents: {
+    38: -7, 39: -7, 40: -5, 41: -5, 42: -2, 43: -4, 44: -5, 46: -4, 47: -4, 48: -6, 49: -6,
+    50: -4, 51: -6, 52: -6, 53: -6, 54: -6, 55: -9, 56: -11, 57: 5, 58: 1, 59: -2, 60: -1, 61: -3,
+    62: -6, 63: 5, 64: 6, 65: 5, 66: 4, 67: 1, 68: 4, 69: 1, 70: 2, 71: 1, 72: -1, 73: -2, 74: -2,
+    75: -3, 76: 4, 77: 5, 78: 6, 79: 7, 80: 7, 81: 2, 82: 2, 83: 0, 84: -2, 85: -2, 86: -2, 87: -2,
+    88: -2, 89: -2, 90: -2, 91: -2, 92: -2, 93: -2, 94: -2, 95: -2, 96: -2,
+  },
+  maxShift: 2,
+  // A palm on the strings stops them a little more slowly than a piano damper.
+  damp: 0.08,
+});
+
+const SAMPLED = { piano, guitar };
+
+// Start loading an instrument's recordings ahead of its first note.
+export function preload(timbre) {
+  return SAMPLED[timbre === "acoustic" ? "piano" : timbre]?.load();
 }
 
 // Synthesized piano, heard only while a note's recording is still loading.
@@ -222,6 +251,7 @@ function playAcoustic(audio, hz, start, duration) {
   thump.start(start);
 }
 
+// Synthesized guitar, heard only while a note's recording is still loading.
 // Plucked string (Karplus-Strong). The loop is N samples of delay plus a two-tap
 // damping filter weighted s, so its period is N + s samples; the buffer is rendered
 // at exactly (N + s) * hz samples per second, which keeps every note in tune to the
@@ -280,9 +310,15 @@ function playGuitar(audio, hz, start, duration) {
 export function playHz(hz, { duration = 1.15, timbre = "piano", when } = {}) {
   const audio = getContext();
   const start = when ?? audio.currentTime;
-  if (timbre === "guitar") return playGuitar(audio, hz, start, duration);
+  if (timbre === "guitar") {
+    if (!guitar.play(audio, hz, start, duration)) playGuitar(audio, hz, start, duration);
+    return;
+  }
   // Everything else is the piano, including "acoustic", a name earlier versions saved.
-  if (!(timbre in TIMBRES)) return playPiano(audio, hz, start, duration);
+  if (!(timbre in TIMBRES)) {
+    if (!piano.play(audio, hz, start, duration)) playAcoustic(audio, hz, start, duration);
+    return;
+  }
   const master = audio.createGain();
   if (timbre === "organ") {
     // Pipes speak and hold at full level for as long as the key is down.
