@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Outfit:wght@380;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=10" />
+    <link rel="stylesheet" href="styles.css?v=11" />
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -26,6 +26,7 @@
         <nav class="tabs" role="tablist" aria-label="Modes">
           <button class="tab is-active" data-mode="identify" role="tab" aria-selected="true">Identify</button>
           <button class="tab" data-mode="produce" role="tab" aria-selected="false">Sing</button>
+          <button class="tab" data-mode="play" role="tab" aria-selected="false">Play</button>
           <button class="tab" data-mode="explore" role="tab" aria-selected="false">Explore</button>
           <button class="tab" data-mode="stats" role="tab" aria-selected="false">Stats</button>
         </nav>
@@ -79,6 +80,26 @@
           </div>
         </section>
 
+        <section id="view-play" class="view" data-view="play" hidden>
+          <div class="stage">
+            <p class="hint">Play the named pitch on your instrument, in any octave. One clean note is enough — no need to hold it.</p>
+            <div class="target-name" id="play-name">C</div>
+            <p class="sub" id="play-octave">any octave</p>
+            <div class="tuner is-wide">
+              <div class="tuner-track">
+                <div class="tuner-needle" id="play-needle"></div>
+              </div>
+              <p class="tuner-readout" id="play-readout">Mic off</p>
+            </div>
+            <div class="row-actions">
+              <button class="btn" id="play-mic-btn" type="button">Enable microphone</button>
+              <button class="btn ghost" id="hear-play" type="button">Hear target</button>
+              <button class="btn ghost" id="next-play" type="button">New note</button>
+            </div>
+            <div class="feedback" id="play-feedback" aria-live="polite"></div>
+          </div>
+        </section>
+
         <section id="view-explore" class="view" data-view="explore" hidden>
           <div class="stage compact">
             <p class="hint">Tap any pitch to hear it. This is listening, not a quiz.</p>
@@ -111,6 +132,11 @@
               <p class="card-kicker">Sung locks</p>
               <p class="stat-lg" id="sung-locks">0</p>
               <p class="sub">pitches sung in tune</p>
+            </article>
+            <article class="card">
+              <p class="card-kicker">Played notes</p>
+              <p class="stat-lg" id="played-notes">0</p>
+              <p class="sub" id="played-first">found on an instrument</p>
             </article>
             <article class="card wide">
               <p class="card-kicker">Accuracy by pitch class</p>
@@ -152,7 +178,7 @@
           <output id="oct-hi-out">4</output>
         </label>
         <label class="field">
-          <span>Sing timbre</span>
+          <span>Sing &amp; Play timbre</span>
           <select id="timbre">
             <option value="piano" selected>Piano-like</option>
             <option value="acoustic">Acoustic piano</option>
@@ -180,6 +206,6 @@
       </div>
     </aside>
 
-    <script type="module" src="src/app.js?v=10"></script>
+    <script type="module" src="src/app.js?v=11"></script>
   </body>
 </html>

@@ -339,7 +339,7 @@ h1 {
   position: relative;
   height: 10px;
   border-radius: 999px;
-  /* Needle spans ±50¢; the lock window is ±20¢ (30%–70%). */
+  /* Needle spans Â±50Â¢; the lock window is Â±20Â¢ (30%â€“70%). */
   background: linear-gradient(90deg, var(--bad), #e8d16a 22%, var(--good) 30%, var(--good) 70%, #e8d16a 78%, var(--bad));
 }
 
@@ -378,6 +378,11 @@ h1 {
 .tuner-needle.is-in {
   background: var(--good);
   box-shadow: 0 0 12px var(--good);
+}
+
+/* Play accepts Â±30Â¢ (20%â€“80%): an instrument is often a little out of tune. */
+.tuner.is-wide .tuner-track {
+  background: linear-gradient(90deg, var(--bad), #e8d16a 12%, var(--good) 20%, var(--good) 80%, #e8d16a 88%, var(--bad));
 }
 
 /* Key faces shared by the Explore keyboard (.key) and the Identify answer piano (.pkey). */
@@ -488,7 +493,7 @@ h1 {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
 }
 
@@ -659,6 +664,13 @@ select {
     overflow-x: auto;
   }
 
+  /* The tabs share the full row; with tighter padding on small phones, all five fit down to 320px. */
+  .tab {
+    flex: 1 1 auto;
+    padding-inline: 8px;
+    white-space: nowrap;
+  }
+
   #settings-btn {
     grid-row: 1;
     grid-column: 2;
@@ -673,6 +685,12 @@ select {
 
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 380px) {
+  .tab {
+    padding-inline: 4px;
   }
 }
 
@@ -925,11 +943,6 @@ h1 {
   white-space: nowrap;
 }
 
-@media (max-width: 360px) {
-  .tab {
-    padding: 8px 10px;
-  }
-}
 
 .btn.ghost.is-armed {
   border-color: var(--bad);

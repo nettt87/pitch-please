@@ -6,6 +6,8 @@ export const emptyStats = () => ({
   bestStreak: 0,
   byPc: Array.from({ length: 12 }, () => ({ hits: 0, misses: 0 })),
   produceLocks: 0,
+  playLocks: 0,
+  playFirstTry: 0,
 });
 
 export function loadStats() {

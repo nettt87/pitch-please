@@ -1,4 +1,4 @@
-function rms(buf) {
+export function rms(buf) {
   let s = 0;
   for (let i = 0; i < buf.length; i += 1) s += buf[i] * buf[i];
   return Math.sqrt(s / buf.length);

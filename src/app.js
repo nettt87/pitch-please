@@ -1,6 +1,6 @@
-import { playHz, getContext } from "./audio.js?v=10";
-import { detectPitch } from "./pitch.js?v=10";
-import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=10";
+import { playHz, getContext } from "./audio.js?v=11";
+import { detectPitch, rms } from "./pitch.js?v=11";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=11";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -9,7 +9,7 @@ import {
   noteFromMidi,
   midiPool,
   chromaCentsOff,
-} from "./notes.js?v=10";
+} from "./notes.js?v=11";
 import {
   loadStats,
   saveStats,
@@ -17,10 +17,16 @@ import {
   loadSettings,
   saveSettings,
   recordIdentify,
-} from "./storage.js?v=10";
+} from "./storage.js?v=11";
 
 const LOCK_CENTS = 20;
 const LOCK_HOLD_MS = 700;
+// Play takes a struck or plucked note: it only has to settle, not sustain.
+const PLAY_CENTS = 30;
+const PLAY_SETTLE_MS = 120;
+// A gap longer than this ends a note; a rise in level this sharp is a new attack.
+const PLAY_GAP_MS = 250;
+const PLAY_ONSET_RATIO = 1.6;
 const PADS = ["wheel", "piano", "guitar"];
 
 const saved = loadSettings();
@@ -49,6 +55,12 @@ const state = {
   produceMidi: null,
   produceLocked: false,
   holdMs: 0,
+  playMidi: null,
+  playLocked: false,
+  playMisses: 0,
+  // The note ringing now: its nearest pitch class, how long that has held, and the pitch classes already scored.
+  playNote: null,
+  playLevel: 0,
   lastTick: 0,
   muteMicUntil: 0,
   resetTimer: 0,
@@ -150,6 +162,10 @@ function renderStats() {
   $("life-n").textContent = `${n} identification${n === 1 ? "" : "s"}`;
   $("best-streak").textContent = String(stats.bestStreak);
   $("sung-locks").textContent = String(stats.produceLocks);
+  $("played-notes").textContent = String(stats.playLocks);
+  $("played-first").textContent = stats.playLocks
+    ? `${Math.round((100 * stats.playFirstTry) / stats.playLocks)}% on the first try`
+    : "found on an instrument";
 
   const bars = $("stat-bars");
   bars.innerHTML = "";
@@ -364,8 +380,14 @@ function buildPiano() {
   }
 }
 
+// The mic serves one view at a time; each has its own tuner.
+const MIC_VIEWS = {
+  produce: { btn: "mic-btn", readout: "tuner-readout", needle: "tuner-needle" },
+  play: { btn: "play-mic-btn", readout: "play-readout", needle: "play-needle" },
+};
+
 function showMode(mode) {
-  if (state.mode === "produce" && mode !== "produce") stopMic();
+  if (state.mic && state.mic.view !== mode) stopMic();
   state.mode = mode;
   document.querySelectorAll(".tab").forEach((t) => {
     const on = t.dataset.mode === mode;
@@ -377,6 +399,7 @@ function showMode(mode) {
   });
   if (mode === "stats") renderStats();
   if (mode === "produce" && !state.produceMidi) nextProduce();
+  if (mode === "play" && state.playMidi === null) nextPlay();
   requestAnimationFrame(layoutWheels);
 }
 
@@ -394,7 +417,23 @@ function nextProduce() {
   state.produceLocked = false;
 }
 
-async function enableMic() {
+function nextPlay() {
+  const all = midiPool(state.pcs, state.lo, state.hi);
+  // A new name each time, so a note still ringing never answers the next round.
+  const prevPc = state.playMidi === null ? -1 : state.playMidi % 12;
+  const fresh = all.filter((m) => m % 12 !== prevPc);
+  state.playMidi = randomFrom(fresh.length ? fresh : all);
+  const n = noteFromMidi(state.playMidi);
+  $("play-name").textContent = n.name;
+  $("play-name").style.color = n.color;
+  $("play-octave").textContent = `any octave · reference ${n.name}${n.octave}`;
+  $("play-feedback").textContent = "";
+  $("play-feedback").className = "feedback";
+  state.playLocked = false;
+  state.playMisses = 0;
+}
+
+async function enableMic(view) {
   const audio = getContext();
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
@@ -403,47 +442,73 @@ async function enableMic() {
   const analyser = audio.createAnalyser();
   analyser.fftSize = 2048;
   src.connect(analyser);
-  state.mic = { stream, src, analyser, buf: new Float32Array(analyser.fftSize) };
+  state.mic = { view, stream, src, analyser, buf: new Float32Array(analyser.fftSize) };
   state.lastTick = 0;
-  $("mic-btn").textContent = "Turn microphone off";
-  $("tuner-readout").textContent = "Listening…";
+  state.playNote = null;
+  state.playLevel = 0;
+  $(MIC_VIEWS[view].btn).textContent = "Turn microphone off";
+  $(MIC_VIEWS[view].readout).textContent = "Listening…";
   requestAnimationFrame(tickMic);
 }
 
 function stopMic() {
   if (!state.mic) return;
+  const ui = MIC_VIEWS[state.mic.view];
   state.mic.stream.getTracks().forEach((t) => t.stop());
   state.mic.src.disconnect();
   state.mic = null;
   state.holdMs = 0;
-  $("mic-btn").textContent = "Enable microphone";
-  $("tuner-readout").textContent = "Mic off";
-  $("tuner-needle").style.left = "50%";
-  $("tuner-needle").classList.remove("is-in");
+  state.playNote = null;
+  $(ui.btn).textContent = "Enable microphone";
+  $(ui.readout).textContent = "Mic off";
+  $(ui.needle).style.left = "50%";
+  $(ui.needle).classList.remove("is-in");
+}
+
+function toggleMic(view) {
+  if (state.mic) {
+    stopMic();
+    return;
+  }
+  enableMic(view).catch(() => {
+    $(MIC_VIEWS[view].readout).textContent =
+      "The microphone isn't available here. Allow mic access in your browser, or open the app on your own computer.";
+  });
 }
 
 function tickMic(t) {
   if (!state.mic) return;
   const dt = state.lastTick ? Math.min(t - state.lastTick, 100) : 16;
   state.lastTick = t;
-  const needle = $("tuner-needle");
-  const readout = $("tuner-readout");
+  const ui = MIC_VIEWS[state.mic.view];
+  const needle = $(ui.needle);
+  const readout = $(ui.readout);
 
   if (performance.now() < state.muteMicUntil) {
     readout.textContent = "Playing reference…";
     state.holdMs = 0;
+    // Whatever still rings from the speakers is the reference, not an answer.
+    if (state.playMidi !== null) {
+      state.playNote = newPlayNote();
+      state.playNote.scored.add(state.playMidi % 12);
+    }
     requestAnimationFrame(tickMic);
     return;
   }
 
   state.mic.analyser.getFloatTimeDomainData(state.mic.buf);
+  if (state.mic.view === "play") tickPlay(dt, needle, readout);
+  else tickSing(dt, needle, readout);
+  requestAnimationFrame(tickMic);
+}
+
+function tickSing(dt, needle, readout) {
   const hz = detectPitch(state.mic.buf, getContext().sampleRate);
 
   if (!hz || !state.produceMidi || state.produceLocked) {
     if (!state.produceLocked) readout.textContent = "Listening…";
     needle.classList.remove("is-in");
     state.holdMs = 0;
-    requestAnimationFrame(tickMic);
     return;
   }
 
@@ -472,7 +537,77 @@ function tickMic(t) {
     const dir = Math.abs(raw) > 50 ? (raw > 0 ? "far sharp" : "far flat") : `${raw >= 0 ? "+" : ""}${raw.toFixed(0)}¢`;
     readout.textContent = `${heard.name}${heard.octave}  ${dir}`;
   }
-  requestAnimationFrame(tickMic);
+}
+
+function newPlayNote() {
+  return { pc: -1, ms: 0, gapMs: 0, scored: new Set() };
+}
+
+// An instrument note is scored once, as soon as its pitch settles; it may then
+// fade freely. Striking again (a sharp rise in level) starts a new note.
+// A note glitching to another pitch for a moment (a muted string, a fading
+// overtone) stays the same note, so its pitch classes are remembered until then.
+function tickPlay(dt, needle, readout) {
+  const level = rms(state.mic.buf);
+  if (state.playLevel && level > 0.02 && level > state.playLevel * PLAY_ONSET_RATIO) state.playNote = null;
+  // A falling peak follower: it rides down with a fading note, so only a fresh attack jumps above it.
+  state.playLevel = Math.max(level, state.playLevel * 0.9);
+
+  const hz = detectPitch(state.mic.buf, getContext().sampleRate, { maxHz: 2100 });
+  if (!hz) {
+    if (state.playNote) {
+      state.playNote.gapMs += dt;
+      if (state.playNote.gapMs > PLAY_GAP_MS) state.playNote = null;
+    }
+    if (!state.playLocked) readout.textContent = "Listening…";
+    needle.classList.remove("is-in");
+    return;
+  }
+
+  const heard = noteFromMidi(Math.round(hzToMidi(hz, state.a4)));
+  if (!state.playNote) state.playNote = newPlayNote();
+  const note = state.playNote;
+  if (note.pc !== heard.pc) {
+    note.pc = heard.pc;
+    note.ms = 0;
+  }
+  note.ms += dt;
+  note.gapMs = 0;
+
+  // A note struck while "yes" is showing belongs to no round.
+  if (state.playLocked || state.playMidi === null) {
+    note.scored.add(heard.pc);
+    return;
+  }
+
+  const raw = chromaCentsOff(hz, state.playMidi, state.a4);
+  const inTune = Math.abs(raw) <= PLAY_CENTS;
+  const off = `${raw >= 0 ? "+" : ""}${raw.toFixed(0)}¢`;
+  needle.style.left = `${50 + Math.max(-50, Math.min(50, raw))}%`;
+  needle.classList.toggle("is-in", inTune);
+  readout.textContent = Math.abs(raw) > 50 ? `${heard.name}${heard.octave}` : `${heard.name}${heard.octave}  ${off}`;
+
+  if (note.scored.has(heard.pc) || note.ms < PLAY_SETTLE_MS) return;
+  note.scored.add(heard.pc);
+  const fb = $("play-feedback");
+
+  if (inTune) {
+    state.playLocked = true;
+    fb.textContent = `${heard.name}${heard.octave} — yes`;
+    fb.className = "feedback good";
+    state.stats.playLocks += 1;
+    if (!state.playMisses) state.stats.playFirstTry += 1;
+    saveStats(state.stats);
+    setTimeout(nextPlay, 1100);
+  } else if (heard.pc === state.playMidi % 12) {
+    // The right key, just outside the window: that's the instrument's tuning, not the note.
+    fb.textContent = `Right note, ${off} off. Tune your instrument or set A4 in Settings.`;
+    fb.className = "feedback bad";
+  } else {
+    state.playMisses += 1;
+    fb.textContent = `That was ${heard.name}${heard.octave} — try again`;
+    fb.className = "feedback bad";
+  }
 }
 
 function openSettings() {
@@ -486,6 +621,8 @@ function closeSettings() {
   newIdentifyNote();
   if (state.mode === "produce") nextProduce();
   else state.produceMidi = null;
+  if (state.mode === "play") nextPlay();
+  else state.playMidi = null;
   $("settings-btn").focus();
 }
 
@@ -574,19 +711,16 @@ function bind() {
     state.autoNext = e.target.checked;
     persistSettings();
   });
-  $("mic-btn").addEventListener("click", () => {
-    if (state.mic) {
-      stopMic();
-      return;
-    }
-    enableMic().catch(() => {
-      $("tuner-readout").textContent = "The microphone isn't available here. Allow mic access in your browser, or open the app on your own computer.";
-    });
-  });
+  $("mic-btn").addEventListener("click", () => toggleMic("produce"));
   $("hear-target").addEventListener("click", () => {
     if (state.produceMidi) playMidi(state.produceMidi);
   });
   $("next-produce").addEventListener("click", nextProduce);
+  $("play-mic-btn").addEventListener("click", () => toggleMic("play"));
+  $("hear-play").addEventListener("click", () => {
+    if (state.playMidi !== null) playMidi(state.playMidi);
+  });
+  $("next-play").addEventListener("click", nextPlay);
   $("reset-stats").addEventListener("click", () => {
     // Two-step confirm built into the button (browser dialogs are blocked in some embeds).
     const btn = $("reset-stats");
