@@ -77,21 +77,14 @@ body {
   box-shadow: 0 0 0 3px #0c0d10, 0 0 0 4px rgba(215, 176, 122, 0.45);
 }
 
+/* The tagline is sized to run about as wide as the title above it, on one line. */
 .brand-kicker {
-  margin: 0;
+  margin: 0 0 2px;
   color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-/* On phones the tagline breaks into two even lines rather than leaving one word alone. */
-@media (max-width: 560px) {
-  .brand-kicker {
-    margin-bottom: 2px;
-    line-height: 1.35;
-    text-wrap: balance;
-  }
+  white-space: nowrap;
 }
 
 h1,
@@ -102,8 +95,47 @@ h2 {
 }
 
 h1 {
-  font-size: 28px;
+  font-size: 33px;
+  line-height: 1.1;
   letter-spacing: -0.03em;
+}
+
+@media (max-width: 560px) {
+  .brand-kicker {
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+  }
+
+  h1 {
+    font-size: 29px;
+  }
+}
+
+@media (max-width: 360px) {
+  .app {
+    padding-inline: 16px;
+  }
+
+  .topbar {
+    gap: 12px;
+  }
+
+  .brand {
+    gap: 10px;
+  }
+
+  #settings-btn {
+    padding: 8px 12px;
+  }
+
+  .brand-kicker {
+    font-size: 8.5px;
+    letter-spacing: 0.05em;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
 }
 
 .tabs {
@@ -892,17 +924,6 @@ h1 {
 }
 
 @media (max-width: 360px) {
-  h1 {
-    font-size: 23px;
-  }
-}
-
-@media (max-width: 360px) {
-  .brand-kicker {
-    font-size: 10px;
-    letter-spacing: 0.1em;
-  }
-
   .tab {
     padding: 8px 10px;
   }
