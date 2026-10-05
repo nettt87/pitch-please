@@ -1,6 +1,7 @@
-import { playHz, getContext, preload } from "./audio.js?v=14";
-import { detectPitch, rms } from "./pitch.js?v=14";
-import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=14";
+import { playHz, getContext, preload } from "./audio.js?v=15";
+import { createTuner } from "./tuner.js?v=15";
+import { detectPitch, rms } from "./pitch.js?v=15";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=15";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -9,7 +10,7 @@ import {
   noteFromMidi,
   midiPool,
   chromaCentsOff,
-} from "./notes.js?v=14";
+} from "./notes.js?v=15";
 import {
   loadStats,
   saveStats,
@@ -17,7 +18,7 @@ import {
   loadSettings,
   saveSettings,
   recordIdentify,
-} from "./storage.js?v=14";
+} from "./storage.js?v=15";
 
 const LOCK_CENTS = 20;
 const LOCK_HOLD_MS = 700;
@@ -615,6 +616,18 @@ function tickPlay(dt, needle, readout) {
   }
 }
 
+const tuner = createTuner({
+  getA4: () => state.a4,
+  setA4: (a4) => {
+    state.a4 = a4;
+    $("a4").value = String(a4);
+    $("a4-out").textContent = String(a4);
+    persistSettings();
+  },
+  // One listener at a time: notes played into the tuner must not score in Sing or Play.
+  beforeOpen: stopMic,
+});
+
 function openSettings() {
   $("settings").hidden = false;
   $("preset").focus();
@@ -672,11 +685,11 @@ function bind() {
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      closeSettings();
+      if (!tuner.close()) closeSettings();
       return;
     }
     const typing = e.target.closest?.("button, input, select, textarea");
-    if (e.key === " " && !typing && $("settings").hidden && state.mode === "identify") {
+    if (e.key === " " && !typing && $("settings").hidden && !tuner.isOpen() && state.mode === "identify") {
       e.preventDefault();
       playCurrent();
     }

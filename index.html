@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Outfit:wght@380;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=14" />
+    <link rel="stylesheet" href="styles.css?v=15" />
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -30,7 +30,10 @@
           <button class="tab" data-mode="explore" role="tab" aria-selected="false">Explore</button>
           <button class="tab" data-mode="stats" role="tab" aria-selected="false">Stats</button>
         </nav>
-        <button class="icon-btn" id="settings-btn" type="button" aria-label="Open settings">Settings</button>
+        <div class="top-actions">
+          <button class="icon-btn" id="settings-btn" type="button" aria-label="Open settings">Settings</button>
+          <button class="icon-btn" id="tuner-btn" type="button" aria-label="Open the chromatic tuner">Tuner</button>
+        </div>
       </header>
 
       <main>
@@ -214,6 +217,40 @@
       </div>
     </aside>
 
-    <script type="module" src="src/app.js?v=14"></script>
+    <aside class="drawer" id="tuner" hidden>
+      <div class="drawer-panel tuner-panel" role="dialog" aria-modal="true" aria-labelledby="tuner-title">
+        <div class="drawer-head">
+          <h2 id="tuner-title">Chromatic tuner</h2>
+          <button class="icon-btn" id="close-tuner" type="button" aria-label="Close tuner">Close</button>
+        </div>
+        <div class="ct-display is-idle" id="ct-display">
+          <div class="ct-note"><span id="ct-name">—</span><sub id="ct-octave"></sub></div>
+          <p class="ct-cents" id="ct-cents">0.0¢</p>
+          <div class="ct-meter" aria-hidden="true">
+            <div class="ct-zone"></div>
+            <div class="ct-needle" id="ct-needle"></div>
+          </div>
+          <div class="ct-scale" aria-hidden="true"><span>−50</span><span>−25</span><span>0</span><span>+25</span><span>+50</span></div>
+          <p class="ct-status" id="ct-status" aria-live="polite">Microphone off</p>
+          <p class="ct-hz"><span id="ct-hz">— Hz</span><span id="ct-target"></span></p>
+        </div>
+        <div class="ct-level" title="Input level"><div id="ct-level"></div></div>
+        <div class="ct-controls">
+          <button class="btn" id="ct-mic" type="button">Start microphone</button>
+          <div class="ct-a4">
+            <span>A4</span>
+            <button class="icon-btn" id="ct-a4-down" type="button" aria-label="Lower A4 by 1 Hz">−</button>
+            <output id="ct-a4">440</output>
+            <button class="icon-btn" id="ct-a4-up" type="button" aria-label="Raise A4 by 1 Hz">+</button>
+            <span>Hz</span>
+          </div>
+        </div>
+        <p class="fineprint">
+          Play one note at a time near the microphone and let it ring. The meter turns green within ±2 cents.
+        </p>
+      </div>
+    </aside>
+
+    <script type="module" src="src/app.js?v=15"></script>
   </body>
 </html>

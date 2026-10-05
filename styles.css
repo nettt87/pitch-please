@@ -124,8 +124,8 @@ h1 {
     gap: 10px;
   }
 
-  #settings-btn {
-    padding: 8px 12px;
+  .top-actions .icon-btn {
+    padding: 6px 12px;
   }
 
   .brand-kicker {
@@ -173,6 +173,17 @@ h1 {
   border-radius: 999px;
   padding: 8px 14px;
   color: var(--muted);
+}
+
+/* Settings with the Tuner stacked under it, both the same width. */
+.top-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.top-actions .icon-btn {
+  padding-block: 6px;
 }
 
 .view[hidden] {
@@ -695,7 +706,7 @@ select {
     white-space: nowrap;
   }
 
-  #settings-btn {
+  .top-actions {
     grid-row: 1;
     grid-column: 2;
   }
@@ -983,4 +994,168 @@ h1 {
   background: var(--c);
   color: #111;
   transform: scale(1.15);
+}
+
+/* Chromatic tuner */
+
+.tuner-panel {
+  width: min(440px, 100%);
+}
+
+.ct-display {
+  text-align: center;
+  transition: opacity 0.3s ease;
+}
+
+.ct-display.is-idle {
+  opacity: 0.45;
+}
+
+.ct-note {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 96px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.ct-note sub {
+  font-size: 32px;
+  letter-spacing: 0;
+  color: var(--muted);
+  vertical-align: baseline;
+  margin-left: 2px;
+}
+
+.ct-cents {
+  margin: 6px 0 14px;
+  font-size: 26px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ±50 cents across the width: a tick every 5 cents, longer ones every 25. */
+.ct-meter {
+  position: relative;
+  height: 46px;
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg, transparent calc(50% - 1px), rgba(243, 238, 228, 0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+    repeating-linear-gradient(90deg, rgba(243, 238, 228, 0.32) 0 1px, transparent 1px 25%) 0 0 / calc(100% + 1px) 60% no-repeat,
+    repeating-linear-gradient(90deg, rgba(243, 238, 228, 0.16) 0 1px, transparent 1px 5%) 0 0 / calc(100% + 1px) 35% no-repeat,
+    #191c24;
+  overflow: hidden;
+}
+
+/* The ±2 cent in-tune window. */
+.ct-zone {
+  position: absolute;
+  inset: 0 auto 0 48%;
+  width: 4%;
+  background: rgba(125, 206, 154, 0.22);
+}
+
+.ct-needle {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 50%;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 4px;
+  background: var(--bad);
+  transition: left 0.1s linear, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ct-display.is-near .ct-needle {
+  background: #e8d16a;
+}
+
+.ct-display.is-in .ct-needle {
+  background: var(--good);
+  box-shadow: 0 0 14px var(--good);
+}
+
+.ct-display.is-idle .ct-needle {
+  background: var(--muted);
+  box-shadow: none;
+}
+
+.ct-display.is-in .ct-cents,
+.ct-display.is-in .ct-status {
+  color: var(--good);
+}
+
+.ct-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-status {
+  margin: 14px 0 4px;
+  min-height: 1.4em;
+  font-size: 18px;
+}
+
+.ct-hz {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-level {
+  height: 4px;
+  margin: 18px 0 16px;
+  border-radius: 99px;
+  background: #22242c;
+  overflow: hidden;
+}
+
+.ct-level div {
+  width: 0;
+  height: 100%;
+  background: var(--brass);
+  transition: width 0.08s linear;
+}
+
+.ct-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ct-a4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-a4 .icon-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ct-a4 .icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ct-a4 output {
+  min-width: 3ch;
+  text-align: center;
+  color: var(--ink);
 }

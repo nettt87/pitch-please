@@ -1,4 +1,4 @@
-import { PITCH_CLASSES, noteFromMidi } from "./notes.js?v=14";
+import { PITCH_CLASSES, noteFromMidi } from "./notes.js?v=15";
 
 // Answer pads for Identify. Every answer button carries data-pc (pitch class it
 // answers) and data-pos (a stable id, so a wrong pick can be re-marked after a rebuild).
