@@ -1,5 +1,5 @@
-import { getContext } from "./audio.js?v=15";
-import { hzToMidi, midiToHz, noteFromMidi } from "./notes.js?v=15";
+import { getContext } from "./audio.js?v=16";
+import { hzToMidi, midiToHz, noteFromMidi } from "./notes.js?v=16";
 
 // Chromatic tuner. Each frame analyses the last 8192 samples (about 170 ms), long
 // enough for several cycles of a bass's low E. The pitch detector is the McLeod
@@ -232,6 +232,60 @@ function median(values) {
   return s[s.length >> 1];
 }
 
+// The dial: ±50 cents across ±50 degrees, pivoting at (160, 186) in the face's drawing.
+const PIVOT_X = 160;
+const PIVOT_Y = 186;
+// Pegs stop the needle just past the end of the scale; at rest it lies on the left one.
+const STOP = 54;
+const REST = -STOP;
+// The needle is a damped spring, like a meter movement: it swings with a little
+// weight, overshoots slightly and settles. Reduced motion drops the overshoot.
+const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const SPRING_HZ = calm ? 3 : 2.2;
+const DAMPING = calm ? 1 : 0.6;
+
+const SVG = "http://www.w3.org/2000/svg";
+
+function polar(r, deg) {
+  const a = (deg * Math.PI) / 180;
+  return [PIVOT_X + r * Math.sin(a), PIVOT_Y - r * Math.cos(a)];
+}
+
+function svg(tag, attrs, parent) {
+  const node = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+  parent.appendChild(node);
+  return node;
+}
+
+function arc(r, from, to) {
+  const [x1, y1] = polar(r, from);
+  const [x2, y2] = polar(r, to);
+  return `M${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+}
+
+// Ticks every cent near the centre, every 5 cents beyond, a label every 10, and
+// coloured bands: green for the ±2 cent in-tune window, red past ±10.
+function drawScale(group) {
+  svg("path", { class: "ct-band", d: arc(122, -2, 2), stroke: "#3f9c62" }, group);
+  svg("path", { class: "ct-band", d: arc(122, -50, -10), stroke: "rgba(192, 57, 43, 0.38)" }, group);
+  svg("path", { class: "ct-band", d: arc(122, 10, 50), stroke: "rgba(192, 57, 43, 0.38)" }, group);
+  for (let c = -50; c <= 50; c += 1) {
+    const major = c % 10 === 0;
+    const mid = c % 5 === 0;
+    if (!major && !mid && Math.abs(c) > 10) continue;
+    const inner = major ? 128 : mid ? 135 : 140;
+    const [x1, y1] = polar(inner, c);
+    const [x2, y2] = polar(146, c);
+    svg("line", { class: "ct-tick", x1, y1, x2, y2, "stroke-width": major ? 2 : mid ? 1.4 : 0.8 }, group);
+    if (major) {
+      const [lx, ly] = polar(160, c);
+      const label = svg("text", { class: `ct-label${c === 0 ? " is-zero" : ""}`, x: lx, y: ly }, group);
+      label.textContent = c === 0 ? "0" : `${c < 0 ? "−" : "+"}${Math.abs(c)}`;
+    }
+  }
+}
+
 export function createTuner({ getA4, setA4, beforeOpen }) {
   const $ = (id) => document.getElementById(id);
   const panel = $("tuner");
@@ -242,6 +296,40 @@ export function createTuner({ getA4, setA4, beforeOpen }) {
   let shownCents = 0;
   let lastHeard = 0;
   let inTuneSince = 0;
+  const needle = { angle: REST, speed: 0, target: REST, last: 0, raf: 0 };
+  drawScale($("ct-scale"));
+  $("ct-needle").setAttribute("transform", `rotate(${REST} ${PIVOT_X} ${PIVOT_Y})`);
+
+  // Step the spring every frame while the tuner is open, whatever the mic is doing.
+  function swing(now) {
+    const dt = needle.last ? Math.min(0.05, (now - needle.last) / 1000) : 1 / 60;
+    needle.last = now;
+    const w = 2 * Math.PI * SPRING_HZ;
+    const steps = 4;
+    const h = dt / steps;
+    for (let i = 0; i < steps; i += 1) {
+      needle.speed += (w * w * (needle.target - needle.angle) - 2 * DAMPING * w * needle.speed) * h;
+      needle.angle += needle.speed * h;
+      // The pegs: a hard stop with a small bounce.
+      if (Math.abs(needle.angle) > STOP) {
+        needle.angle = Math.sign(needle.angle) * STOP;
+        needle.speed *= -0.3;
+      }
+    }
+    $("ct-needle").setAttribute("transform", `rotate(${needle.angle.toFixed(3)} ${PIVOT_X} ${PIVOT_Y})`);
+    needle.raf = requestAnimationFrame(swing);
+  }
+
+  function lamps(flat, inTune, sharp) {
+    $("ct-lamp-flat").classList.toggle("is-lit", flat);
+    $("ct-lamp-in").classList.toggle("is-lit", inTune);
+    $("ct-lamp-sharp").classList.toggle("is-lit", sharp);
+  }
+
+  function rest() {
+    needle.target = REST;
+    lamps(false, false, false);
+  }
 
   function renderA4() {
     $("ct-a4").textContent = String(getA4());
@@ -294,6 +382,7 @@ export function createTuner({ getA4, setA4, beforeOpen }) {
     $("ct-status").textContent = "Microphone off";
     $("ct-level").style.width = "0%";
     $("ct-display").classList.add("is-idle");
+    rest();
   }
 
   function tick(now) {
@@ -317,12 +406,15 @@ export function createTuner({ getA4, setA4, beforeOpen }) {
       const cents = (hzToMidi(steady, a4) - nearest) * 100;
       shownCents += (cents - shownCents) * 0.5;
       lastHeard = now;
+      // The spring smooths the needle itself; the digits get a light glide.
+      needle.target = Math.max(-60, Math.min(60, cents));
       render(nearest, steady, shownCents, now);
     } else if (now - lastHeard > 700) {
       $("ct-display").classList.add("is-idle");
       $("ct-status").textContent = "Play a single note";
       $("ct-display").classList.remove("is-in", "is-near");
       inTuneSince = 0;
+      rest();
     }
     raf = requestAnimationFrame(tick);
   }
@@ -337,8 +429,6 @@ export function createTuner({ getA4, setA4, beforeOpen }) {
     $("ct-cents").textContent = `${cents >= 0 ? "+" : "−"}${Math.abs(cents).toFixed(1)}¢`;
     $("ct-hz").textContent = `${hz.toFixed(2)} Hz`;
     $("ct-target").textContent = `${n.name}${n.octave} = ${midiToHz(midi, getA4()).toFixed(2)} Hz`;
-    $("ct-needle").style.left = `${50 + Math.max(-50, Math.min(50, cents))}%`;
-
     const inTune = Math.abs(cents) <= IN_TUNE;
     if (inTune && !inTuneSince) inTuneSince = now;
     if (!inTune) inTuneSince = 0;
@@ -346,6 +436,7 @@ export function createTuner({ getA4, setA4, beforeOpen }) {
     const locked = inTune && now - inTuneSince > 250;
     display.classList.toggle("is-in", locked);
     display.classList.toggle("is-near", !locked && Math.abs(cents) <= 10);
+    lamps(!locked && cents < 0, locked, !locked && cents > 0);
     $("ct-status").textContent = locked ? "In tune" : cents < 0 ? "Flat — tune up" : "Sharp — tune down";
   }
 
@@ -355,12 +446,15 @@ export function createTuner({ getA4, setA4, beforeOpen }) {
     renderA4();
     $("ct-display").classList.add("is-idle");
     $("close-tuner").focus();
+    needle.last = 0;
+    needle.raf = requestAnimationFrame(swing);
     start();
   }
 
   function close() {
     if (panel.hidden) return false;
     stop();
+    cancelAnimationFrame(needle.raf);
     panel.hidden = true;
     $("tuner-btn").focus();
     return true;

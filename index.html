@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Outfit:wght@380;500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=15" />
+    <link rel="stylesheet" href="styles.css?v=16" />
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -224,14 +224,39 @@
           <button class="icon-btn" id="close-tuner" type="button" aria-label="Close tuner">Close</button>
         </div>
         <div class="ct-display is-idle" id="ct-display">
-          <div class="ct-note"><span id="ct-name">—</span><sub id="ct-octave"></sub></div>
-          <p class="ct-cents" id="ct-cents">0.0¢</p>
-          <div class="ct-meter" aria-hidden="true">
-            <div class="ct-zone"></div>
-            <div class="ct-needle" id="ct-needle"></div>
+          <div class="ct-dial" aria-hidden="true">
+            <div class="ct-lamps">
+              <span class="ct-lamp is-flat" id="ct-lamp-flat">♭</span>
+              <span class="ct-lamp is-in" id="ct-lamp-in"></span>
+              <span class="ct-lamp is-sharp" id="ct-lamp-sharp">♯</span>
+            </div>
+            <svg class="ct-face" viewBox="0 0 320 196">
+              <defs>
+                <filter id="ct-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="2.5" dy="3" stdDeviation="1.6" flood-color="#000" flood-opacity="0.35" />
+                </filter>
+                <radialGradient id="ct-cap" cx="40%" cy="35%" r="70%">
+                  <stop offset="0" stop-color="#e9d2a6" />
+                  <stop offset="0.6" stop-color="#9c7a45" />
+                  <stop offset="1" stop-color="#4a3820" />
+                </radialGradient>
+              </defs>
+              <g id="ct-scale"></g>
+              <text class="ct-unit" x="160" y="142">CENTS</text>
+              <g id="ct-needle" filter="url(#ct-shadow)">
+                <polygon points="158.6,186 161.4,186 160.4,32 159.6,32" />
+                <polygon class="ct-tail" points="157,186 163,186 162,206 158,206" />
+              </g>
+              <circle cx="160" cy="186" r="9" fill="url(#ct-cap)" />
+            </svg>
           </div>
-          <div class="ct-scale" aria-hidden="true"><span>−50</span><span>−25</span><span>0</span><span>+25</span><span>+50</span></div>
-          <p class="ct-status" id="ct-status" aria-live="polite">Microphone off</p>
+          <div class="ct-readout">
+            <div class="ct-note"><span id="ct-name">—</span><sub id="ct-octave"></sub></div>
+            <div>
+              <p class="ct-cents" id="ct-cents">0.0¢</p>
+              <p class="ct-status" id="ct-status" aria-live="polite">Microphone off</p>
+            </div>
+          </div>
           <p class="ct-hz"><span id="ct-hz">— Hz</span><span id="ct-target"></span></p>
         </div>
         <div class="ct-level" title="Input level"><div id="ct-level"></div></div>
@@ -246,11 +271,11 @@
           </div>
         </div>
         <p class="fineprint">
-          Play one note at a time near the microphone and let it ring. The meter turns green within ±2 cents.
+          Play one note at a time near the microphone and let it ring. The green lamp lights within ±2 cents.
         </p>
       </div>
     </aside>
 
-    <script type="module" src="src/app.js?v=15"></script>
+    <script type="module" src="src/app.js?v=16"></script>
   </body>
 </html>

@@ -1,7 +1,7 @@
-import { playHz, getContext, preload } from "./audio.js?v=15";
-import { createTuner } from "./tuner.js?v=15";
-import { detectPitch, rms } from "./pitch.js?v=15";
-import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=15";
+import { playHz, getContext, preload } from "./audio.js?v=16";
+import { createTuner } from "./tuner.js?v=16";
+import { detectPitch, rms } from "./pitch.js?v=16";
+import { buildAnswerPiano, buildFretboard, buildWheel, guitarFrets, GUITAR_LOW } from "./pads.js?v=16";
 import {
   PITCH_CLASSES,
   PRESETS,
@@ -10,7 +10,7 @@ import {
   noteFromMidi,
   midiPool,
   chromaCentsOff,
-} from "./notes.js?v=15";
+} from "./notes.js?v=16";
 import {
   loadStats,
   saveStats,
@@ -18,7 +18,7 @@ import {
   loadSettings,
   saveSettings,
   recordIdentify,
-} from "./storage.js?v=15";
+} from "./storage.js?v=16";
 
 const LOCK_CENTS = 20;
 const LOCK_HOLD_MS = 700;

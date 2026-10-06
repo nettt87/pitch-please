@@ -1004,22 +1004,142 @@ h1 {
 
 .ct-display {
   text-align: center;
+}
+
+/* An analog meter: a cream face behind glass, in a dark bezel. */
+.ct-dial {
+  position: relative;
+  padding: 10px 10px 0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #2a2c33, #15161b);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.ct-face {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px 12px 4px 4px;
+  background: radial-gradient(120% 90% at 50% 100%, #fbf4e3 0%, #efe3c8 55%, #d9c9a6 100%);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Glass: a soft highlight across the top of the face, below the strip of lamps. */
+.ct-dial::after {
+  content: "";
+  position: absolute;
+  inset: 48px 10px auto;
+  height: 45%;
+  border-radius: 12px 12px 50% 50% / 12px 12px 18% 18%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+.ct-face .ct-tick {
+  stroke: #3b2f22;
+  stroke-linecap: round;
+}
+
+.ct-face .ct-label {
+  fill: #3b2f22;
+  font: 600 11px Outfit, system-ui, sans-serif;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.ct-face .ct-label.is-zero {
+  font-size: 14px;
+}
+
+.ct-face .ct-unit {
+  fill: #7a6a52;
+  font: 600 9px Outfit, system-ui, sans-serif;
+  letter-spacing: 0.3em;
+  text-anchor: middle;
+}
+
+.ct-face .ct-band {
+  fill: none;
+  stroke-width: 6;
+}
+
+#ct-needle {
+  fill: #a3231b;
+}
+
+#ct-needle .ct-tail {
+  fill: #3b2f22;
+}
+
+/* Three lamps on the bezel above the window, as on a hardware tuner: flat, in tune, sharp. */
+.ct-lamps {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 34px;
+  height: 30px;
+  margin-bottom: 8px;
+}
+
+.ct-lamp {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  line-height: 1;
+  background: radial-gradient(circle at 35% 30%, #6b5f50, #2b251f);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.ct-lamp.is-in {
+  width: 26px;
+  height: 26px;
+}
+
+.ct-lamp.is-flat.is-lit,
+.ct-lamp.is-sharp.is-lit {
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, #ffb4a6, #e0402f 60%, #8f1d12);
+  box-shadow: 0 0 12px rgba(240, 80, 60, 0.85);
+}
+
+.ct-lamp.is-in.is-lit {
+  background: radial-gradient(circle at 35% 30%, #d6ffe4, #4fd47f 60%, #1c7a3f);
+  box-shadow: 0 0 14px rgba(110, 230, 150, 0.95);
+}
+
+.ct-readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 14px;
   transition: opacity 0.3s ease;
 }
 
-.ct-display.is-idle {
+.ct-display.is-idle .ct-readout,
+.ct-display.is-idle .ct-hz {
   opacity: 0.45;
+}
+
+.ct-readout > div:last-child {
+  text-align: left;
+  min-width: 9.5em;
 }
 
 .ct-note {
   font-family: Fraunces, Georgia, serif;
-  font-size: 96px;
+  font-size: 72px;
   line-height: 1;
   letter-spacing: -0.04em;
 }
 
 .ct-note sub {
-  font-size: 32px;
+  font-size: 26px;
   letter-spacing: 0;
   color: var(--muted);
   vertical-align: baseline;
@@ -1027,57 +1147,10 @@ h1 {
 }
 
 .ct-cents {
-  margin: 6px 0 14px;
+  margin: 0;
   font-size: 26px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-}
-
-/* ±50 cents across the width: a tick every 5 cents, longer ones every 25. */
-.ct-meter {
-  position: relative;
-  height: 46px;
-  border-radius: 12px;
-  background:
-    linear-gradient(90deg, transparent calc(50% - 1px), rgba(243, 238, 228, 0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
-    repeating-linear-gradient(90deg, rgba(243, 238, 228, 0.32) 0 1px, transparent 1px 25%) 0 0 / calc(100% + 1px) 60% no-repeat,
-    repeating-linear-gradient(90deg, rgba(243, 238, 228, 0.16) 0 1px, transparent 1px 5%) 0 0 / calc(100% + 1px) 35% no-repeat,
-    #191c24;
-  overflow: hidden;
-}
-
-/* The ±2 cent in-tune window. */
-.ct-zone {
-  position: absolute;
-  inset: 0 auto 0 48%;
-  width: 4%;
-  background: rgba(125, 206, 154, 0.22);
-}
-
-.ct-needle {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 50%;
-  width: 4px;
-  margin-left: -2px;
-  border-radius: 4px;
-  background: var(--bad);
-  transition: left 0.1s linear, background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.ct-display.is-near .ct-needle {
-  background: #e8d16a;
-}
-
-.ct-display.is-in .ct-needle {
-  background: var(--good);
-  box-shadow: 0 0 14px var(--good);
-}
-
-.ct-display.is-idle .ct-needle {
-  background: var(--muted);
-  box-shadow: none;
 }
 
 .ct-display.is-in .ct-cents,
@@ -1085,19 +1158,11 @@ h1 {
   color: var(--good);
 }
 
-.ct-scale {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
 .ct-status {
-  margin: 14px 0 4px;
+  margin: 4px 0 0;
   min-height: 1.4em;
-  font-size: 18px;
+  font-size: 16px;
+  color: var(--muted);
 }
 
 .ct-hz {
@@ -1105,7 +1170,7 @@ h1 {
   justify-content: center;
   gap: 14px;
   flex-wrap: wrap;
-  margin: 0;
+  margin: 10px 0 0;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
